@@ -1,0 +1,147 @@
+import { controller, httpPost, httpGet, requestParam, httpDelete } from "inversify-express-utils";
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import { GivingBaseController } from "./GivingBaseController.js";
+import { Donation } from "../models/index.js";
+import { Permissions } from "../../../shared/helpers/Permissions.js";
+import { EmailHelper } from "@machonharuach/apihelper";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+@controller("/giving/donations")
+export class DonationController extends GivingBaseController {
+  @httpGet("/testEmail")
+  public async testEmail(req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapperAnon(req, res, async () => {
+      let error = "";
+      try {
+        await EmailHelper.sendEmail({
+          from: "support@machonharuach.org",
+          to: "jeremy@livecs.org",
+          subject: "Test Email",
+          body: "Test Email"
+        });
+      } catch (e) {
+        error = (e as any).toString();
+      }
+      const filePath = path.join(__dirname, "../../src/tools/templates/test.html");
+      const result = { dir: __dirname, filePath, error };
+      return result;
+    });
+  }
+
+  @httpGet("/kpis")
+  public async getKpis(req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.donations.viewSummary)) return this.json({}, 401);
+      else {
+        const startDate = req.query.startDate ? new Date(req.query.startDate.toString()) : new Date(2000, 1, 1);
+        const endDate = req.query.endDate ? new Date(req.query.endDate.toString()) : new Date();
+        const fundId = req.query.fundId?.toString() || "";
+        const result = await this.repos.donation.loadDashboardKpis(au.churchId, startDate, endDate, fundId || undefined);
+        return result || { totalGiving: 0, avgGift: 0, donorCount: 0, donationCount: 0 };
+      }
+    });
+  }
+
+  @httpGet("/summary")
+  public async getSummary(req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.donations.viewSummary)) return this.json({}, 401);
+      else {
+        const startDate = req.query.startDate ? new Date(req.query.startDate.toString()) : new Date(2000, 1, 1);
+        const endDate = req.query.endDate ? new Date(req.query.endDate.toString()) : new Date();
+        const type = req.query.type?.toString() || "";
+        if (type === "person") {
+          const result = await this.repos.donation.loadPersonBasedSummary(au.churchId, startDate, endDate);
+          return this.repos.donation.convertAllToPersonSummary(au.churchId, result as any[]);
+        }
+        const result = await this.repos.donation.loadSummary(au.churchId, startDate, endDate);
+        return this.repos.donation.convertAllToSummary(au.churchId, result as any[]);
+      }
+    });
+  }
+
+  @httpGet("/fundTotals")
+  public async getFundTotals(req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.donations.viewSummary)) return this.json({}, 401);
+      const startDate = req.query.startDate ? new Date(req.query.startDate.toString()) : new Date(2000, 1, 1);
+      const endDate = req.query.endDate ? new Date(req.query.endDate.toString()) : new Date();
+      const result = await this.repos.donation.loadFundTotals(au.churchId, startDate, endDate);
+      return result || [];
+    });
+  }
+
+  @httpGet("/my")
+  public async getMy(req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const result = await this.repos.donation.loadByPersonId(au.churchId, au.personId);
+      const model = this.repos.donation.convertAllToModel(au.churchId, result as any[]);
+      const ecoCashCount = (model || []).filter((d: any) => (d?.method || "").toString().toLowerCase().includes("eco")).length;
+      console.info("[Giving][History][/donations/my] fetched", {
+        churchId: au.churchId,
+        personId: au.personId,
+        totalCount: (model || []).length,
+        ecoCashCount
+      });
+      return model;
+    });
+  }
+
+  @httpGet("/:id")
+  public async get(@requestParam("id") id: string, req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.donations.view)) return this.json({}, 401);
+      else {
+        const data = await this.repos.donation.load(au.churchId, id);
+        const result = this.repos.donation.convertToModel(au.churchId, data);
+        return result;
+      }
+    });
+  }
+
+  @httpGet("/")
+  public async getAll(req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const personId = req.query?.personId?.toString() || "";
+      if (!au.checkAccess(Permissions.donations.view) && personId !== au.personId) return this.json({}, 401);
+      else {
+        let result;
+        if (req.query.batchId !== undefined) result = await this.repos.donation.loadByBatchId(au.churchId, req.query.batchId.toString());
+        else if (personId) result = await this.repos.donation.loadByPersonId(au.churchId, personId);
+        else result = await this.repos.donation.loadAll(au.churchId);
+        return this.repos.donation.convertAllToModel(au.churchId, result as any[] as any[]);
+      }
+    });
+  }
+
+  @httpPost("/")
+  public async save(req: express.Request<{}, {}, Donation[]>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.donations.edit)) return this.json({}, 401);
+      else {
+        const promises: Promise<Donation>[] = [];
+        req.body.forEach((donation) => {
+          donation.churchId = au.churchId;
+          promises.push(this.repos.donation.save(donation));
+        });
+        const result = await Promise.all(promises);
+        return this.repos.donation.convertAllToModel(au.churchId, result as any[] as any[]);
+      }
+    });
+  }
+
+  @httpDelete("/:id")
+  public async delete(@requestParam("id") id: string, req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.donations.edit)) return this.json({}, 401);
+      else {
+        await this.repos.donation.delete(au.churchId, id);
+        return this.json({});
+      }
+    });
+  }
+}

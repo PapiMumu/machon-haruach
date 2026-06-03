@@ -1,0 +1,228 @@
+import { type PersonInterface } from "@machonharuach/helpers";
+import { PersonHelper, UserHelper, Permissions, DateHelper, PersonAvatar, ApiHelper } from "@machonharuach/apphelper";
+import { Typography, IconButton, Stack, Chip, Tooltip, Box } from "@mui/material";
+import {
+  Edit as EditIcon,
+  Phone as PhoneIcon,
+  Email as EmailIcon,
+  Home as HomeIcon,
+  Sms as SmsIcon
+} from "@mui/icons-material";
+import React, { memo, useMemo, useState, useEffect } from "react";
+import { StatusChip } from "../../components";
+import { SendTextDialog } from "../../groups/components/SendTextDialog";
+
+interface Props {
+  person: PersonInterface;
+  togglePhotoEditor?: (show: boolean) => void;
+  onEdit?: () => void;
+}
+
+interface PersonUserAccessInfo {
+  email: string;
+  subscriptionStatus?: string;
+  trialEndsAt?: string | null;
+  subscriptionEndsAt?: string | null;
+}
+
+export const PersonBanner = memo((props: Props) => {
+  const { person, togglePhotoEditor, onEdit } = props;
+
+  const [userAccess, setUserAccess] = useState<PersonUserAccessInfo | null>(null);
+  const [showTextDialog, setShowTextDialog] = useState(false);
+  const [hasTextingProvider, setHasTextingProvider] = useState(false);
+
+  const canText = useMemo(() => UserHelper.checkAccess(Permissions.messagingApi.texting.send), []);
+
+  useEffect(() => {
+    if (person?.id) {
+      ApiHelper.get("/userchurch/personid/" + person.id, "MembershipApi")
+        .then((data: PersonUserAccessInfo | null) => {
+          setUserAccess(data);
+        })
+        .catch(() => setUserAccess(null));
+    }
+  }, [person?.id]);
+
+  useEffect(() => {
+    if (canText) {
+      ApiHelper.get("/texting/providers", "MessagingApi")
+        .then((data: any[]) => setHasTextingProvider(data?.length > 0))
+        .catch(() => setHasTextingProvider(false));
+    }
+  }, [canText]);
+
+  const canEdit = useMemo(() => UserHelper.checkAccess(Permissions.membershipApi.people.edit), []);
+
+  const membershipStatus = useMemo(() => {
+    if (!person?.membershipStatus) return null;
+    return <StatusChip status={person.membershipStatus} size="small" />;
+  }, [person?.membershipStatus]);
+
+  const quickStats = useMemo(() => {
+    if (!person) return [];
+    const stats = [];
+
+    if (person.birthDate) {
+      const age = PersonHelper.getAge(person.birthDate);
+      stats.push({ label: "Age", value: `${age}` });
+    }
+
+    if (person.gender && person.gender !== "Unspecified") {
+      stats.push({ label: "Gender", value: person.gender });
+    }
+
+    if (person.maritalStatus && person.maritalStatus !== "Single") {
+      let value = person.maritalStatus;
+      if (person.anniversary) {
+        value += ` (${DateHelper.getShortDate(DateHelper.toDate(person.anniversary))})`;
+      }
+      stats.push({ label: "Marital Status", value });
+    }
+
+    return stats;
+  }, [person]);
+
+  const contactInfo = useMemo(() => {
+    if (!person?.contactInfo) return [];
+    const info = [];
+
+    if (person.contactInfo.email) {
+      info.push({
+        icon: <EmailIcon sx={{ color: "#fff", fontSize: 16 }} />,
+        value: person.contactInfo.email,
+        action: () => (window.location.href = `mailto:${person.contactInfo.email}`)
+      });
+    }
+
+    const phone = person.contactInfo.mobilePhone || person.contactInfo.homePhone || person.contactInfo.workPhone;
+    if (phone) {
+      info.push({
+        icon: <PhoneIcon sx={{ color: "#fff", fontSize: 16 }} />,
+        value: phone,
+        showTextButton: !!person.contactInfo.mobilePhone && canText && hasTextingProvider
+      });
+    }
+
+    if (person.contactInfo.address1) {
+      const addressParts = [person.contactInfo.address1, person.contactInfo.address2, [person.contactInfo.city, person.contactInfo.state, person.contactInfo.zip].filter(Boolean).join(", ")].filter(
+        Boolean
+      );
+
+      info.push({
+        icon: <HomeIcon sx={{ color: "#fff", fontSize: 16 }} />,
+        value: addressParts.join(", ")
+      });
+    }
+
+    return info;
+  }, [person, canText, hasTextingProvider]);
+
+  if (!person) return null;
+
+  return (
+    <Box sx={{
+      backgroundColor: "background.paper",
+      color: "#FFF",
+      position: "relative",
+      mx: 3,
+      mt: 2,
+      borderRadius: 2,
+      border: "1px solid",
+      borderColor: "grey.200",
+      overflow: "hidden",
+      paddingX: { xs: 2, sm: 3, md: 4 },
+      paddingY: 3,
+      boxShadow: "0 2px 10px rgba(0,0,0,0.06)"
+    }}>
+      <Stack direction={{ xs: "column", lg: "row" }} spacing={{ xs: 2, md: 4 }} alignItems={{ xs: "flex-start", md: "center" }} sx={{ width: "100%", position: "relative", zIndex: 1 }}>
+        {/* Column 1: Avatar + Name + Status */}
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ flexShrink: 0 }}>
+          <div style={{ border: "2px solid rgba(255,255,255,0.35)", borderRadius: "50%" }}>
+            <PersonAvatar person={person} size="responsive" onClick={() => canEdit && togglePhotoEditor?.(true)} />
+          </div>
+          <Stack spacing={1} sx={{ minWidth: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography
+                sx={{
+                  color: "text.primary",
+                  fontWeight: 400,
+                  mb: 0,
+                  wordBreak: "break-word",
+                  fontSize: { xs: "1.7rem", sm: "2rem", md: "2.5rem" },
+                  lineHeight: 1.1
+                }}>
+                {person?.name?.display}
+              </Typography>
+              {canEdit && (
+                <IconButton size="small" sx={{ color: "text.primary" }} onClick={onEdit}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Stack>
+            <Stack direction="row" flexWrap="wrap" gap={1}>
+              {membershipStatus}
+              {userAccess?.email && (
+                <Chip
+                  label="Has login"
+                  size="small"
+                  title={userAccess.email}
+                  sx={{ backgroundColor: "action.hover", color: "text.primary" }}
+                />
+              )}
+              {userAccess?.subscriptionStatus && (
+                <Chip
+                  label={`Subscription: ${userAccess.subscriptionStatus}`}
+                  size="small"
+                  title={userAccess.subscriptionEndsAt ? `Ends: ${userAccess.subscriptionEndsAt}` : undefined}
+                  sx={{ backgroundColor: "action.hover", color: "text.primary" }}
+                />
+              )}
+              {quickStats.map((stat) => (
+                <Typography key={`${stat.label}-${stat.value}`} variant="body2" sx={{ color: "text.secondary" }}>
+                  {stat.value}
+                </Typography>
+              ))}
+            </Stack>
+          </Stack>
+        </Stack>
+
+        {/* Column 2: Contact Info */}
+        <Stack spacing={0.5} sx={{ position: { xs: "static", lg: "absolute" }, left: { lg: "50%" }, top: { lg: "50%" }, transform: { lg: "translateY(-50%)" }, minWidth: 0 }}>
+          {contactInfo.map((info: any) => (
+            <Stack key={info.value} direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+              {info.icon}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  cursor: info.action ? "pointer" : "default",
+                  "&:hover": info.action ? { textDecoration: "underline" } : {},
+                  wordBreak: "break-word",
+                  fontSize: { xs: "0.875rem", md: "1rem" }
+                }}
+                onClick={info.action}>
+                {info.value}
+              </Typography>
+              {info.showTextButton && (
+                <Tooltip title="Send text message">
+                  <IconButton size="small" sx={{ color: "text.secondary", p: 0.25 }} onClick={() => setShowTextDialog(true)}>
+                    <SmsIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Stack>
+          ))}
+        </Stack>
+      </Stack>
+      {showTextDialog && person?.contactInfo?.mobilePhone && (
+        <SendTextDialog
+          personId={person.id}
+          personName={person.name?.display}
+          phoneNumber={person.contactInfo.mobilePhone}
+          onClose={() => setShowTextDialog(false)}
+        />
+      )}
+    </Box>
+  );
+});

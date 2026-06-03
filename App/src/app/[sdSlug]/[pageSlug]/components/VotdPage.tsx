@@ -1,0 +1,62 @@
+"use client";
+
+import { Container } from "@mui/material";
+import { useState, useEffect } from "react";
+
+export function VotdPage() {
+  const [shape, setShape] = useState("16x9");
+  const [day, setDay] = useState<number | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  const getShape = () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const ratio = width / height;
+
+    const diff1x1 = Math.abs(ratio - 1);
+    const diff16x9 = Math.abs(ratio - 1.777);
+    const diff9x16 = Math.abs(ratio - 0.5625);
+    let result = "1x1";
+    if (diff16x9 < diff1x1) result = "16x9";
+    else if (diff9x16 < diff1x1) result = "9x16";
+    setShape(result);
+  };
+
+  const getDayOfYear = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now.getTime() - start.getTime();
+    const oneDay = 1000 * 60 * 60 * 24;
+    const day = Math.floor(diff / oneDay);
+    return day;
+  };
+
+  useEffect(() => {
+    setIsClient(true);
+    getShape();
+    setDay(getDayOfYear());
+    window.addEventListener("resize", getShape);
+    return () => window.removeEventListener("resize", getShape);
+  }, []);
+
+  // Don't render the image until client-side to avoid hydration mismatch
+  if (!isClient || day === null) {
+    return (
+      <Container>
+        <h1 style={{ textAlign: "center" }}>Verse of the Day</h1>
+        <div className="full-frame" style={{ minHeight: "200px" }} />
+      </Container>
+    );
+  }
+
+  return (
+    <Container>
+      <h1 style={{ textAlign: "center" }}>Verse of the Day</h1>
+      <img
+        src={"https://votd.org/v1/" + day + "/" + shape + ".jpg"}
+        className="full-frame"
+        alt="Verse of the Day"
+      />
+    </Container>
+  );
+}

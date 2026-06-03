@@ -1,0 +1,71 @@
+import { globalStyles } from "../../src/helpers";
+import { DimensionHelper } from "@/helpers/DimensionHelper";
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { useThemeColors } from "../theme";
+
+interface Props {
+  title: string;
+  headerIcon: React.ReactNode;
+  children: React.ReactNode;
+  cancelFunction?: () => void;
+  deleteFunction?: () => void;
+  saveFunction?: () => void;
+  isSubmitting?: boolean;
+}
+
+export function InputBox({ title, headerIcon, children, cancelFunction, deleteFunction, saveFunction, isSubmitting = false }: Props) {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+  const buttons: React.ReactElement[] = [];
+
+  const widthClass = deleteFunction ? DimensionHelper.wp(33.33) : DimensionHelper.wp(50);
+  if (cancelFunction) {
+    buttons.push(
+      <TouchableOpacity
+        style={{ ...globalStyles.actionButtons, backgroundColor: colors.warning, width: widthClass }}
+        onPress={() => {
+          cancelFunction();
+        }}
+        disabled={isSubmitting}
+        key="cancel">
+        <Text style={globalStyles.previewBtnText}>{t("common.cancel")}</Text>
+      </TouchableOpacity>
+    );
+  }
+  if (deleteFunction) {
+    buttons.push(
+      <TouchableOpacity
+        style={{ ...globalStyles.actionButtons, backgroundColor: colors.error, width: widthClass }}
+        onPress={() => {
+          deleteFunction();
+        }}
+        disabled={isSubmitting}>
+        <Text style={globalStyles.previewBtnText}>{t("common.delete")}</Text>
+      </TouchableOpacity>
+    );
+  }
+  if (saveFunction) {
+    buttons.push(
+      <TouchableOpacity style={{ ...globalStyles.actionButtons, backgroundColor: colors.success, width: widthClass }} onPress={() => saveFunction()} disabled={isSubmitting}>
+        {isSubmitting ? <ActivityIndicator size="small" color="gray" animating={isSubmitting} /> : <Text style={globalStyles.previewBtnText}>{t("common.save")}</Text>}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[globalStyles.paymentTitleContainer, { backgroundColor: colors.surface }]}>
+      <View style={{ width: DimensionHelper.wp(100) }}>
+        <View style={globalStyles.paymentTitleHeaderLine} />
+        <View style={globalStyles.paymentTitleView}>
+          {headerIcon}
+          <Text style={globalStyles.paymentTitleText}>{title}</Text>
+          <View style={{ width: DimensionHelper.wp(6) }} />
+        </View>
+      </View>
+      {children}
+      <View style={{ ...globalStyles.previewBtnView }}>{buttons}</View>
+    </View>
+  );
+}

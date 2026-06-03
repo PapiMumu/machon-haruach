@@ -1,0 +1,173 @@
+import React, { useState, useCallback } from "react";
+import { type ChurchInterface } from "@machonharuach/helpers";
+import { UserHelper, Permissions, Locale, ApiHelper, Loading, PageHeader } from "@machonharuach/apphelper";
+import { Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Box, Stack, Button } from "@mui/material";
+import { Lock as LockIcon, PlayArrow as PlayArrowIcon, Edit as EditIcon, History as HistoryIcon } from "@mui/icons-material";
+import { RolesTab, ChurchSettingsEdit } from "./components";
+import { useQuery } from "@tanstack/react-query";
+
+const SETTINGS_SECTIONS = ["church-info", "general", "giving", "texting", "domains"];
+const ROLES_HASH = "roles";
+
+export const ManageChurch = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const hash = location.hash?.replace("#", "");
+  const isSettingsHash = SETTINGS_SECTIONS.includes(hash);
+  const [selectedTab, setSelectedTab] = React.useState("roles");
+  const [showChurchSettings, setShowChurchSettings] = React.useState(() => isSettingsHash);
+  const [initialSection, setInitialSection] = useState<string | undefined>(isSettingsHash ? hash : undefined);
+  const [redirectUrl, setRedirectUrl] = useState<string>("");
+
+  const jwt = ApiHelper.getConfig("MembershipApi").jwt;
+  const churchId = UserHelper.currentUserChurch.church.id;
+
+  const church = useQuery<ChurchInterface>({
+    queryKey: [`/churches/${churchId}?include=permissions`, "MembershipApi"],
+    enabled: !!churchId
+  });
+
+  const checkAccess = useCallback(() => {
+    const canManageRoles =
+      UserHelper.checkAccess(Permissions.membershipApi.roles.view) ||
+      UserHelper.checkAccess(Permissions.membershipApi.roles.edit);
+    const canEditChurchSettings = UserHelper.checkAccess(Permissions.membershipApi.settings.edit);
+    if (!canEditChurchSettings && !canManageRoles) {
+      setRedirectUrl("/");
+    }
+  }, []);
+
+  const getCurrentTab = useCallback(() => {
+    if (church.data) {
+      switch (selectedTab) {
+        case "roles": return <RolesTab church={church.data} />;
+        default: return <div></div>;
+      }
+    }
+    return <div></div>;
+  }, [church.data, selectedTab]);
+
+  const handleUpdated = useCallback(() => {
+    setShowChurchSettings(false);
+    setInitialSection(undefined);
+    church.refetch();
+  }, [church]);
+
+  React.useEffect(checkAccess, [checkAccess]);
+  React.useEffect(() => {
+    if (hash === ROLES_HASH) {
+      setShowChurchSettings(false);
+      setSelectedTab("roles");
+      setInitialSection(undefined);
+      return;
+    }
+
+    if (isSettingsHash) {
+      setShowChurchSettings(true);
+      setInitialSection(hash);
+      return;
+    }
+
+    // Plain /settings with no hash — show the roles list, not church settings.
+    setShowChurchSettings(false);
+    setSelectedTab("roles");
+    setInitialSection(undefined);
+  }, [hash, isSettingsHash]);
+
+  if (redirectUrl !== "") return <Navigate to={redirectUrl}></Navigate>;
+  if (church.isLoading) return <Loading />;
+  if (!church.data) return <div>{Locale.label("settings.manageChurch.noData")}</div>;
+
+  return (
+    <>
+      <PageHeader title={church.data?.name || Locale.label("settings.manageChurch.title")} subtitle={church.data?.subDomain ? `${church.data.subDomain} · GNW Mobile` : Locale.label("settings.manageChurch.subtitle")}>
+        <Stack direction="row" spacing={1}>
+          {UserHelper.checkAccess(Permissions.membershipApi.settings.edit) && (
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => {
+                setShowChurchSettings(true);
+                if (!location.hash) navigate("/settings#church-info");
+              }}
+              sx={{
+                color: "#FFF",
+                backgroundColor: "transparent",
+                borderColor: "#FFF",
+                "&:hover": {
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  color: "#FFF"
+                }
+              }}>
+              {Locale.label("settings.manageChurch.editSettings")}
+            </Button>
+          )}
+          <Button
+            variant={!showChurchSettings && selectedTab === "roles" ? "contained" : "outlined"}
+            startIcon={<LockIcon />}
+            onClick={() => {
+              setShowChurchSettings(false);
+              setSelectedTab("roles");
+              navigate("/settings#roles");
+            }}
+            sx={{
+              color: selectedTab === "roles" ? "primary.main" : "#FFF",
+              backgroundColor: selectedTab === "roles" ? "#FFF" : "transparent",
+              borderColor: "#FFF",
+              "&:hover": {
+                backgroundColor: selectedTab === "roles" ? "#FFF" : "rgba(255,255,255,0.2)",
+                color: selectedTab === "roles" ? "primary.main" : "#FFF"
+              }
+            }}>
+            {Locale.label("settings.roles.roles")}
+          </Button>
+          {UserHelper.checkAccess(Permissions.membershipApi.server.admin) && (
+            <Button
+              variant="outlined"
+              startIcon={<HistoryIcon />}
+              onClick={() => navigate("/settings/audit-log")}
+              sx={{
+                color: "#FFF",
+                backgroundColor: "transparent",
+                borderColor: "#FFF",
+                "&:hover": {
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  color: "#FFF"
+                }
+              }}>
+              Audit Log
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<PlayArrowIcon />}
+            href={`https://transfer.machonharuach.org/login?jwt=${jwt}&churchId=${churchId}`}
+            target="_blank"
+            rel="noreferrer noopener"
+            sx={{
+              color: "#FFF",
+              backgroundColor: "transparent",
+              borderColor: "#FFF",
+              "&:hover": {
+                backgroundColor: "rgba(255,255,255,0.2)",
+                color: "#FFF"
+              }
+            }}>
+            {Locale.label("settings.manageChurch.imEx")}
+          </Button>
+        </Stack>
+      </PageHeader>
+
+      {/* Church Settings Modal/Component */}
+      {showChurchSettings && (
+        <Box sx={{ p: 2 }}>
+          <ChurchSettingsEdit church={church.data} updatedFunction={handleUpdated} initialSection={initialSection} />
+        </Box>
+      )}
+
+      {/* Tab Content - hidden when editing church settings */}
+      {!showChurchSettings && selectedTab === "roles" && <Box sx={{ p: 2 }}>{getCurrentTab()}</Box>}
+    </>
+  );
+};

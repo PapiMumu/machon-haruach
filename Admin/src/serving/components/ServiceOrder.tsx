@@ -1,0 +1,623 @@
+import React, { memo, useCallback, useMemo } from "react";
+import { Stack, Typography, Button, ButtonGroup, Box, Card, CardContent, Menu, MenuItem, Chip, Snackbar, Alert } from "@mui/material";
+import { Print as PrintIcon, Add as AddIcon, Album as AlbumIcon, MenuBook as MenuBookIcon, ArrowDropDown as ArrowDropDownIcon, Link as LinkIcon, Close as CloseIcon, Schedule as ScheduleIcon } from "@mui/icons-material";
+import { type PlanInterface } from "@machonharuach/helpers";
+import { type PlanItemInterface } from "../../helpers";
+import { ApiHelper, UserHelper, Permissions, Locale } from "@machonharuach/apphelper";
+import { getProvider, type InstructionItem, type IProvider, type Instructions } from "@machonharuach/content-providers";
+import { PlanItemEdit } from "./PlanItemEdit";
+import { LessonSelector } from "./LessonSelector";
+import { LessonHeaderSelector } from "./LessonHeaderSelector";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { PlanItem } from "./PlanItem";
+import { LessonPreview } from "./LessonPreview";
+import { DraggableWrapper } from "../../components/DraggableWrapper";
+import { DroppableWrapper } from "../../components/DroppableWrapper";
+import { DroppableScroll } from "../../site/admin/DroppableScroll";
+import { getSectionDuration, formatTime } from "./PlanUtils";
+import { findThumbnailRecursive } from "./planItemUtils";
+
+interface Props {
+  plan: PlanInterface;
+  onPlanUpdate?: () => void;
+}
+
+
+// Helper to get instructions from provider based on its capabilities
+async function getProviderInstructions(provider: IProvider, path: string): Promise<Instructions | null> {
+  const capabilities = provider.capabilities;
+  if (capabilities.instructions && provider.getInstructions) {
+    return provider.getInstructions(path);
+  }
+  return null;
+}
+
+// Helper to convert InstructionItem to PlanItemInterface
+function instructionToPlanItem(item: InstructionItem, providerId?: string, providerPath?: string, pathIndices: number[] = []): PlanItemInterface {
+  // Map provider item types to plan item types
+  let itemType = item.itemType || "item";
+  if (itemType === "section") itemType = "providerSection";
+  else if (itemType === "action") itemType = "providerPresentation";
+  else if (itemType === "file") itemType = "providerFile";
+
+  // Generate dot-notation path from indices (e.g., [0, 2, 1] -> "0.2.1")
+  const contentPath = pathIndices.length > 0 ? pathIndices.join(".") : undefined;
+
+  // Get thumbnail, searching recursively through children if needed
+  const thumbnail = findThumbnailRecursive(item);
+
+  return {
+    itemType,
+    relatedId: item.relatedId,
+    label: item.label || "",
+    description: item.description,
+    seconds: item.seconds ?? 0,
+    providerId,
+    providerPath,
+    providerContentPath: contentPath,
+    thumbnailUrl: thumbnail,
+    children: item.children?.map((child, index) => instructionToPlanItem(child, providerId, providerPath, [...pathIndices, index]))
+  };
+}
+
+export const ServiceOrder = memo((props: Props) => {
+  const [planItems, setPlanItems] = React.useState<PlanItemInterface[]>([]);
+  const canEdit = UserHelper.checkAccess(Permissions.membershipApi.plans.edit);
+  const [editPlanItem, setEditPlanItem] = React.useState<PlanItemInterface | null>(null);
+  const [showHeaderDrop, setShowHeaderDrop] = React.useState(false);
+  const [showItemDrop, setShowItemDrop] = React.useState(false);
+  const [showAssociateLessonSelector, setShowAssociateLessonSelector] = React.useState(false);
+  const [showLessonHeaderSelector, setShowLessonHeaderSelector] = React.useState(false);
+  const [addMenuAnchor, setAddMenuAnchor] = React.useState<null | HTMLElement>(null);
+  const [venueName, setVenueName] = React.useState<string>("");
+  const [previewLessonItems, setPreviewLessonItems] = React.useState<PlanItemInterface[]>([]);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  // Get the provider dynamically based on plan's providerId
+  const provider: IProvider | null = useMemo(() => {
+    if (props.plan?.providerId) {
+      return getProvider(props.plan.providerId);
+    }
+    return null;
+  }, [props.plan?.providerId]);
+
+  // Calculate total plan duration
+  const totalDuration = useMemo(() => {
+    return planItems.reduce((total, item) => total + getSectionDuration(item), 0);
+  }, [planItems]);
+
+  const loadData = useCallback(async () => {
+    if (props.plan?.id) {
+      try {
+        const data = await ApiHelper.get("/planItems/plan/" + props.plan.id.toString(), "DoingApi");
+        setPlanItems(data || []);
+      } catch (error) {
+        console.error("Error loading plan items:", error);
+        setErrorMessage(Locale.label("plans.serviceOrder.loadError") || "Failed to load plan items");
+        setPlanItems([]);
+      }
+    }
+  }, [props.plan?.id]);
+
+
+  const handleAssociateLesson = useCallback(async (contentId: string, selectedVenueName?: string, contentPath?: string, providerId?: string) => {
+    try {
+      setShowAssociateLessonSelector(false);
+      // Update the plan with the content association using path-based system
+      const updatedPlan = {
+        ...props.plan,
+        providerId: providerId,
+        providerPlanId: contentPath || contentId, // Store path for provider method calls
+        providerPlanName: selectedVenueName || "",
+        // Backward compat
+        contentType: "provider",
+        contentId: contentId
+      };
+      await ApiHelper.post("/plans", [updatedPlan], "DoingApi");
+      setVenueName(selectedVenueName || "");
+      if (props.onPlanUpdate) props.onPlanUpdate();
+    } catch (error) {
+      console.error("Error associating lesson:", error);
+      setErrorMessage(Locale.label("plans.serviceOrder.associateError") || "Failed to associate lesson");
+    }
+  }, [props.plan, props.onPlanUpdate]);
+
+  const handleDisassociateLesson = useCallback(async () => {
+    try {
+      const updatedPlan = {
+        ...props.plan,
+        contentType: null,
+        contentId: null,
+        providerId: null,
+        providerPlanId: null,
+        providerPlanName: null
+      };
+      await ApiHelper.post("/plans", [updatedPlan], "DoingApi");
+      setVenueName("");
+      if (props.onPlanUpdate) props.onPlanUpdate();
+    } catch (error) {
+      console.error("Error disassociating lesson:", error);
+      setErrorMessage(Locale.label("plans.serviceOrder.disassociateError") || "Failed to unlink lesson");
+    }
+  }, [props.plan, props.onPlanUpdate]);
+
+  // Helper methods for lesson/content association
+  const hasAssociatedContent = !!(props.plan?.providerId && props.plan?.providerPlanId);
+  const hasAssociatedLesson = hasAssociatedContent; // Alias for backward compat
+
+  // Get content path for provider method calls
+  const getContentPath = useCallback((): string | null => {
+    if (!hasAssociatedContent) return null;
+    return props.plan?.providerPlanId || null;
+  }, [hasAssociatedContent, props.plan?.providerPlanId]);
+
+  // Determine if we should show preview mode
+  const showPreviewMode = hasAssociatedLesson && planItems.length === 0 && previewLessonItems.length > 0;
+
+  const saveHierarchicalItems = async (items: PlanItemInterface[], parentId?: string): Promise<void> => {
+    if (!items || items.length === 0) return;
+
+    // Prepare top-level items for this batch
+    const itemsToSave = items.map((item, index) => {
+      const cleanItem = { ...item };
+      delete cleanItem.id; // Completely remove the id property
+      return {
+        ...cleanItem,
+        planId: props.plan.id,
+        parentId,
+        sort: index + 1,
+        children: undefined // Remove children for the API call
+      };
+    });
+
+    // Post the current level items
+    const savedItems = await ApiHelper.post("/planItems", itemsToSave, "DoingApi");
+
+    // Process children for each saved item
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].children && items[i].children.length > 0) {
+        const newParentId = savedItems[i]?.id;
+        if (newParentId) {
+          await saveHierarchicalItems(items[i].children, newParentId);
+        }
+      }
+    }
+  };
+
+  // Import only sections (not actions/presentations) as editable plan items
+  const handleCustomizeLesson = useCallback(async () => {
+    if (!hasAssociatedContent || !provider) return;
+
+    try {
+      const contentPath = getContentPath();
+      if (!contentPath) return;
+
+      const instructions = await getProviderInstructions(provider, contentPath);
+      const currentProviderId = props.plan?.providerId;
+
+      if (instructions?.items && instructions.items.length > 0) {
+        // Convert InstructionItems to PlanItemInterface with providerId and providerPath
+        const planItemsFromInstructions = instructions.items.map((item, index) => instructionToPlanItem(item, currentProviderId, contentPath, [index]));
+
+        // Keep top-level headers with their section children, but strip grandchildren (actions)
+        const sectionsOnly = planItemsFromInstructions.map((item: PlanItemInterface) => ({
+          ...item,
+          // Keep children (sections) but strip their children (actions)
+          children: item.children?.map((section: PlanItemInterface) => ({
+            ...section,
+            children: undefined // Remove actions from sections
+          }))
+        }));
+        await saveHierarchicalItems(sectionsOnly);
+        setPreviewLessonItems([]); // Clear preview
+        loadData();
+      }
+    } catch (error) {
+      console.error("Error customizing lesson:", error);
+    }
+  }, [hasAssociatedContent, getContentPath, provider, props.plan?.providerId, loadData]);
+
+  const addHeader = useCallback(async () => {
+    // If in preview mode, first customize (import sections only), then add header
+    if (showPreviewMode) {
+      await handleCustomizeLesson();
+      // After customizing, the planItems will be reloaded, so we need to add at the end
+      // The sort will be recalculated after loadData completes
+    }
+    setEditPlanItem({ itemType: "header", planId: props.plan.id, sort: planItems?.length + 1 || 1 });
+  }, [props.plan.id, planItems?.length, showPreviewMode, handleCustomizeLesson]);
+
+  // Load content/venue name when there's an associated content
+  const loadVenueName = useCallback(async () => {
+    if (!hasAssociatedContent) {
+      setVenueName("");
+      return;
+    }
+    // Use providerPlanName if available (new system)
+    if (props.plan?.providerPlanName) {
+      setVenueName(props.plan.providerPlanName);
+      return;
+    }
+    // Otherwise fetch from provider
+    if (!provider) return;
+    try {
+      const contentPath = getContentPath();
+      if (!contentPath) return;
+
+      const instructions = await getProviderInstructions(provider, contentPath);
+      if (instructions?.name) setVenueName(instructions.name);
+    } catch (error) {
+      console.error("Error loading venue name:", error);
+    }
+  }, [hasAssociatedContent, getContentPath, provider, props.plan?.providerPlanName]);
+
+  const loadPreviewLessonItems = useCallback(async () => {
+    if (hasAssociatedContent && planItems.length === 0 && provider) {
+      try {
+        const contentPath = getContentPath();
+        if (!contentPath) {
+          setPreviewLessonItems([]);
+          return;
+        }
+
+        const instructions = await getProviderInstructions(provider, contentPath);
+        const currentProviderId = props.plan?.providerId;
+
+        if (instructions?.items) {
+          // Convert InstructionItems to PlanItemInterface for preview with providerId and providerPath
+          const planItemsFromInstructions = instructions.items.map((item, index) => instructionToPlanItem(item, currentProviderId, contentPath, [index]));
+          setPreviewLessonItems(planItemsFromInstructions);
+        } else {
+          setPreviewLessonItems([]);
+        }
+        if (instructions?.name) setVenueName(instructions.name);
+      } catch (error) {
+        console.error("Error loading preview lesson items:", error);
+        setPreviewLessonItems([]);
+      }
+    } else {
+      setPreviewLessonItems([]);
+    }
+  }, [hasAssociatedContent, planItems.length, getContentPath, provider, props.plan?.providerId]);
+
+  const handleAddLesson = useCallback(() => {
+    // Always show the LessonHeaderSelector - it now supports provider browsing
+    setShowLessonHeaderSelector(true);
+  }, []);
+
+  // Handle selection from LessonHeaderSelector
+  const handleLessonHeaderSelect = useCallback(async (items: PlanItemInterface[]) => {
+    if (items.length > 0) {
+      await saveHierarchicalItems(items);
+      loadData();
+    }
+  }, [loadData]);
+
+  const editContent = useMemo(
+    () => (
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Button
+          onClick={() => window.open(`/serving/plans/print/${props.plan?.id}`, "_blank")}
+          variant="outlined"
+          size="small"
+          title={Locale.label("plans.serviceOrder.print")}
+          aria-label={Locale.label("plans.serviceOrder.print") || "Print plan"}
+          sx={{
+            minWidth: 40,
+            borderRadius: 2
+          }}>
+          <PrintIcon sx={{ fontSize: 20 }} />
+        </Button>
+        {canEdit && (
+          <>
+            {hasAssociatedContent ? (
+              <Chip
+                icon={<MenuBookIcon sx={{ fontSize: 18 }} />}
+                label={venueName || "Loading..."}
+                onDelete={handleDisassociateLesson}
+                deleteIcon={<CloseIcon sx={{ fontSize: 16 }} />}
+                size="small"
+                sx={{
+                  backgroundColor: "rgba(25, 118, 210, 0.08)",
+                  borderColor: "primary.main",
+                  "& .MuiChip-label": { fontWeight: 500 },
+                  "& .MuiChip-deleteIcon": {
+                    color: "text.secondary",
+                    "&:hover": { color: "error.main" }
+                  }
+                }}
+                variant="outlined"
+              />
+            ) : (
+              <Chip
+                icon={<LinkIcon sx={{ fontSize: 18 }} />}
+                label={Locale.label("plans.serviceOrder.associateLesson") || "Link Lesson"}
+                onClick={() => setShowAssociateLessonSelector(true)}
+                size="small"
+                sx={{
+                  backgroundColor: "rgba(0, 0, 0, 0.04)",
+                  borderColor: "divider",
+                  cursor: "pointer",
+                  "& .MuiChip-label": { fontWeight: 500 },
+                  "&:hover": {
+                    backgroundColor: "rgba(25, 118, 210, 0.08)",
+                    borderColor: "primary.main"
+                  }
+                }}
+                variant="outlined"
+              />
+            )}
+            <ButtonGroup variant="contained" size="small">
+              <Button
+                startIcon={<AddIcon />}
+                onClick={addHeader}
+                sx={{
+                  textTransform: "none",
+                  borderRadius: "8px 0 0 8px",
+                  fontWeight: 600
+                }}>
+                {Locale.label("plans.serviceOrder.addSection")}
+              </Button>
+              <Button
+                onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+                sx={{
+                  borderRadius: "0 8px 8px 0",
+                  minWidth: 32,
+                  px: 0.5
+                }}>
+                <ArrowDropDownIcon />
+              </Button>
+            </ButtonGroup>
+            <Menu
+              anchorEl={addMenuAnchor}
+              open={Boolean(addMenuAnchor)}
+              onClose={() => setAddMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => { setAddMenuAnchor(null); addHeader(); }}>
+                <AddIcon sx={{ mr: 1 }} /> {Locale.label("plans.serviceOrder.addSection")}
+              </MenuItem>
+              <MenuItem onClick={() => { setAddMenuAnchor(null); handleAddLesson(); }}>
+                <MenuBookIcon sx={{ mr: 1 }} /> {Locale.label("plans.serviceOrder.addFromLesson") || "Add from Lesson"}
+              </MenuItem>
+            </Menu>
+          </>
+        )}
+      </Stack>
+    ),
+    [
+      props.plan?.id, addHeader, canEdit, addMenuAnchor, hasAssociatedLesson, hasAssociatedContent, provider?.name, venueName, handleDisassociateLesson, handleAddLesson
+    ]
+  );
+
+  const handleDrop = useCallback(
+    (data: any, sort: number) => {
+      const pi = data.data as PlanItemInterface;
+      pi.sort = sort;
+      ApiHelper.post("/planItems/sort", pi, "DoingApi").then(() => {
+        loadData();
+      });
+    },
+    [loadData]
+  );
+
+  const renderPlanItems = () => {
+    const result: JSX.Element[] = [];
+    let cumulativeTime = 0;
+
+    planItems.forEach((pi, index) => {
+      const sectionStartTime = cumulativeTime;
+
+      result.push(
+        <React.Fragment key={pi.id || `temp-${index}`}>
+          {canEdit && showHeaderDrop && (
+            <DroppableWrapper
+              accept="planItemHeader"
+              onDrop={(item) => {
+                handleDrop(item, index + 0.5);
+              }}>
+              <Box
+                sx={{
+                  height: 40,
+                  border: "2px dashed",
+                  borderColor: "primary.main",
+                  borderRadius: 1,
+                  backgroundColor: "primary.light",
+                  opacity: 0.3,
+                  mb: 1
+                }}
+              />
+            </DroppableWrapper>
+          )}
+          {canEdit ? (
+            <DraggableWrapper
+              dndType="planItemHeader"
+              data={pi}
+              draggingCallback={(isDragging) => {
+                setShowHeaderDrop(isDragging);
+              }}>
+              <PlanItem
+                planItem={pi}
+                setEditPlanItem={setEditPlanItem}
+                showItemDrop={showItemDrop}
+                onDragChange={(dragging) => {
+                  setShowItemDrop(dragging);
+                }}
+                onChange={() => {
+                  loadData();
+                }}
+                startTime={sectionStartTime}
+                associatedVenueId={hasAssociatedContent ? getContentPath() : undefined}
+                associatedProviderId={props.plan?.providerId}
+                ministryId={props.plan?.ministryId}
+              />
+            </DraggableWrapper>
+          ) : (
+            <PlanItem
+              planItem={pi}
+              setEditPlanItem={null}
+              showItemDrop={false}
+              onDragChange={() => { }}
+              onChange={() => { }}
+              readOnly={true}
+              startTime={sectionStartTime}
+              associatedVenueId={hasAssociatedContent ? getContentPath() : undefined}
+              associatedProviderId={props.plan?.providerId}
+              ministryId={props.plan?.ministryId}
+            />
+          )}
+        </React.Fragment>
+      );
+
+      cumulativeTime += getSectionDuration(pi);
+    });
+
+    return result;
+  };
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Load venue name when there's an associated lesson
+  React.useEffect(() => {
+    loadVenueName();
+  }, [loadVenueName]);
+
+  // Load preview lesson items when plan has associated lesson but no plan items
+  React.useEffect(() => {
+    loadPreviewLessonItems();
+  }, [loadPreviewLessonItems]);
+
+  return (
+    <Box>
+      {editPlanItem && canEdit && (
+        <PlanItemEdit
+          planItem={editPlanItem}
+          onDone={() => {
+            setEditPlanItem(null);
+            loadData();
+          }}
+        />
+      )}
+
+      <LessonSelector
+        open={showAssociateLessonSelector}
+        onClose={() => setShowAssociateLessonSelector(false)}
+        onSelect={handleAssociateLesson}
+        returnVenueName={true}
+        ministryId={props.plan?.ministryId}
+        defaultProviderId={props.plan?.providerId}
+      />
+
+      <LessonHeaderSelector
+        open={showLessonHeaderSelector}
+        onClose={() => setShowLessonHeaderSelector(false)}
+        onSelect={handleLessonHeaderSelect}
+        providerId={props.plan?.providerId}
+        providerPath={getContentPath() || undefined}
+        ministryId={props.plan?.ministryId}
+      />
+
+      <Card
+        sx={{
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "var(--border-light)",
+          transition: "all 0.2s ease-in-out",
+          "&:hover": { boxShadow: 2 }
+        }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <AlbumIcon sx={{ color: "primary.main", fontSize: 28 }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, color: "primary.main" }}>
+                  {Locale.label("plans.serviceOrder.orderOfService")}
+                </Typography>
+              </Stack>
+              {totalDuration > 0 && (
+                <Chip
+                  icon={<ScheduleIcon sx={{ fontSize: 18 }} />}
+                  label={formatTime(totalDuration)}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontWeight: 500 }}
+                />
+              )}
+            </Stack>
+            {editContent}
+          </Stack>
+
+          <DndProvider backend={HTML5Backend}>
+            {(showHeaderDrop || showItemDrop) && (
+              <>
+                <div style={{ position: "fixed", bottom: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 1000, width: "min(600px, 80%)" }}>
+                  <DroppableScroll direction="down" text="Scroll Down" acceptTypes={["planItemHeader", "planItem"]} />
+                </div>
+                <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 1000, width: "min(600px, 80%)" }}>
+                  <DroppableScroll direction="up" text="Scroll Up" acceptTypes={["planItemHeader", "planItem"]} />
+                </div>
+              </>
+            )}
+            {planItems.length === 0 ? (
+              showPreviewMode ? (
+                <LessonPreview
+                  lessonItems={previewLessonItems}
+                  venueName={venueName}
+                  onCustomize={handleCustomizeLesson}
+                  associatedProviderId={props.plan?.providerId}
+                  associatedVenueId={getContentPath() || undefined}
+                  ministryId={props.plan?.ministryId}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    textAlign: "center",
+                    py: 4,
+                    color: "text.secondary"
+                  }}>
+                  <AlbumIcon sx={{ fontSize: 48, mb: 2, color: "text.secondary" }} />
+                  <Typography variant="body1">{Locale.label("plans.serviceOrder.noItems")}</Typography>
+                </Box>
+              )
+            ) : (
+              <>
+                {renderPlanItems()}
+                {showHeaderDrop && (
+                  <DroppableWrapper
+                    accept="planItemHeader"
+                    onDrop={(item) => {
+                      handleDrop(item, planItems?.length + 1);
+                    }}>
+                    <Box
+                      sx={{
+                        height: 40,
+                        border: "2px dashed",
+                        borderColor: "primary.main",
+                        borderRadius: 1,
+                        backgroundColor: "primary.light",
+                        opacity: 0.3,
+                        mb: 1
+                      }}
+                    />
+                  </DroppableWrapper>
+                )}
+              </>
+            )}
+          </DndProvider>
+        </CardContent>
+      </Card>
+      <Snackbar
+        open={!!errorMessage}
+        autoHideDuration={6000}
+        onClose={() => setErrorMessage(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="error" onClose={() => setErrorMessage(null)}>
+          {errorMessage}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+});

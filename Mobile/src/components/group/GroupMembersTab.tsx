@@ -1,0 +1,130 @@
+import React from "react";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { Text, Card, Avatar, IconButton } from "react-native-paper";
+import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { Constants, EnvironmentHelper } from "../../helpers";
+import { InlineLoader } from "../common/LoadingComponents";
+import { useThemeColors } from "../../theme";
+
+interface GroupMember {
+  id: string;
+  person: {
+    id: string;
+    name: { display: string };
+    photo?: string;
+    householdId?: string;
+    contactInfo?: any;
+  };
+}
+
+interface GroupMembersTabProps {
+  members: GroupMember[];
+  isLoading: boolean;
+}
+
+export const GroupMembersTab: React.FC<GroupMembersTabProps> = ({
+  members,
+  isLoading
+}) => {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+
+  const handleMemberPress = (member: GroupMember) => {
+    const memberData = {
+      id: member?.person?.id,
+      name: { display: member?.person?.name?.display },
+      photo: member?.person?.photo,
+      householdId: member?.person?.householdId,
+      contactInfo: member?.person?.contactInfo
+    };
+    router.navigate({ pathname: "/memberDetailRoot", params: { member: JSON.stringify(memberData) } });
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.membersContainer}>
+        <InlineLoader size="large" text={t("groups.loadingMembers")} />
+      </View>
+    );
+  }
+
+  if (members.length === 0) {
+    return (
+      <View style={styles.membersContainer}>
+        <View style={styles.emptyState}>
+          <Avatar.Icon size={64} icon="account-group" style={[styles.emptyIcon, { backgroundColor: colors.iconBackground }]} />
+          <Text variant="titleMedium" style={[styles.emptyTitle, { color: colors.text }]}>
+            {t("groups.noMembersFound")}
+          </Text>
+          <Text variant="bodyMedium" style={[styles.emptySubtitle, { color: colors.disabled }]}>
+            {t("groups.membersWillAppear")}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.membersContainer}>
+      {members.map((item: GroupMember) => (
+        <Card key={item?.id} style={[styles.modernMemberCard, { backgroundColor: colors.card, shadowColor: colors.shadowBlack }]}>
+          <TouchableOpacity style={styles.memberCardContent} onPress={() => handleMemberPress(item)}>
+            <Avatar.Image size={56} source={item?.person?.photo ? { uri: EnvironmentHelper.ContentRoot + item.person.photo } : Constants.Images.ic_member} />
+            <View style={styles.memberInfo}>
+              <Text variant="titleMedium" style={[styles.memberName, { color: colors.text }]}>
+                {item?.person?.name?.display}
+              </Text>
+              <Text variant="bodySmall" style={[styles.memberRole, { color: colors.disabled }]}>
+                {t("groups.groupMember")}
+              </Text>
+            </View>
+            <IconButton icon="chevron-right" size={20} iconColor={colors.disabled} />
+          </TouchableOpacity>
+        </Card>
+      ))}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  membersContainer: { minHeight: 200 },
+  modernMemberCard: {
+    borderRadius: 12,
+    elevation: 1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    marginBottom: 8
+  },
+  memberCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16
+  },
+  memberInfo: {
+    flex: 1,
+    marginLeft: 16
+  },
+  memberName: {
+    fontWeight: "600",
+    marginBottom: 2
+  },
+  memberRole: {},
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 32,
+    paddingHorizontal: 24
+  },
+  emptyIcon: { marginBottom: 16 },
+  emptyTitle: {
+    fontWeight: "600",
+    marginBottom: 8,
+    textAlign: "center"
+  },
+  emptySubtitle: {
+    textAlign: "center",
+    lineHeight: 20
+  }
+});

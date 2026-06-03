@@ -1,0 +1,96 @@
+import { controller, httpPost, httpGet, requestParam, httpDelete } from "inversify-express-utils";
+import express from "express";
+import { Arrangement } from "../models/index.js";
+import { ContentBaseController } from "./ContentBaseController.js";
+import { Permissions } from "../helpers/index.js";
+
+@controller("/content/arrangements")
+export class ArrangementController extends ContentBaseController {
+  @httpGet("/:id")
+  public async get(@requestParam("id") id: string, req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      return await this.repos.arrangement.load(au.churchId, id);
+    });
+  }
+
+  @httpGet("/song/:songId")
+  public async getBySong(@requestParam("songId") songId: string, req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.content.edit)) return this.json({}, 401);
+      else {
+        return await this.repos.arrangement.loadBySongId(au.churchId, songId);
+      }
+    });
+  }
+
+  @httpGet("/songDetail/:songDetailId")
+  public async getBySongDetail(@requestParam("songDetailId") songDetailId: string, req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.content.edit)) return this.json({}, 401);
+      else {
+        return await this.repos.arrangement.loadBySongDetailId(au.churchId, songDetailId);
+      }
+    });
+  }
+
+  @httpGet("/")
+  public async getAll(req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.content.edit)) return this.json({}, 401);
+      else {
+        return await this.repos.arrangement.loadAll(au.churchId);
+      }
+    });
+  }
+
+  @httpPost("/")
+  public async post(req: express.Request<{}, {}, Arrangement[]>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.content.edit)) return this.json({}, 401);
+      else {
+        const promises: Promise<Arrangement>[] = [];
+        req.body.forEach((arrangement) => {
+          arrangement.churchId = au.churchId;
+          promises.push(this.repos.arrangement.save(arrangement));
+        });
+        const result = await Promise.all(promises);
+        return result;
+      }
+    });
+  }
+
+  @httpDelete("/:id")
+  public async delete(@requestParam("id") id: string, req: express.Request, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      if (!au.checkAccess(Permissions.content.edit)) return this.json({}, 401);
+      else {
+        const existing = await this.repos.arrangement.load(au.churchId, id);
+        if (existing) {
+          await this.repos.arrangement.delete(au.churchId, id);
+          await this.repos.arrangementKey.deleteForArrangement(au.churchId, id);
+          const songArrangments = await this.repos.arrangement.loadBySongId(au.churchId, existing.songId);
+          if (songArrangments.length === 0) await this.repos.song.delete(au.churchId, existing.songId);
+        }
+        return this.json({});
+      }
+    });
+  }
+
+  @httpPost("/freeShow/missing")
+  public async getMissingFreeShowArrangements(req: express.Request<{}, {}, { freeShowIds: string[] }>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { freeShowIds } = req.body;
+      if (!freeShowIds || !Array.isArray(freeShowIds)) {
+        return this.json({ error: "Invalid request body. Expected array of freeShowIds" }, 400);
+      }
+
+      const existingArrangements = await this.repos.arrangement.loadAll(au.churchId);
+      const existingFreeShowIds = existingArrangements.map((a: Arrangement) => a.freeShowId).filter((id: string | undefined) => id);
+
+      // Return array of IDs that don't exist in B1
+      const missingIds = freeShowIds.filter((id) => !existingFreeShowIds.includes(id));
+
+      return this.json(missingIds);
+    });
+  }
+}

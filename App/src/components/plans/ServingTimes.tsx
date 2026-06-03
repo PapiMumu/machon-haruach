@@ -1,0 +1,71 @@
+import React from "react";
+import { ArrayHelper } from "@machonharuach/apphelper";
+import { DateHelper } from "@machonharuach/apphelper";
+import { DisplayBox } from "@machonharuach/apphelper";
+import type { AssignmentInterface, PlanInterface, PositionInterface } from "@machonharuach/helpers";
+import { TableRow, TableCell, Table, TableHead, TableBody } from "@mui/material";
+import Link from "next/link";
+
+interface Props {
+  plans: PlanInterface[];
+  positions: PositionInterface[];
+  assignments: AssignmentInterface[];
+}
+
+export const ServingTimes: React.FC<Props> = (props) => {
+
+  const getStatusLabel = (status:string) => {
+    let result = <div style={{ color: "#ed6c02", fontWeight: "bold" }}>{status}</div>;
+    if (status === "Accepted") result = (<div style={{ color: "#2e7d32", fontWeight: "bold" }}>{status}</div>);
+    else if (status === "Declined") result = (<div style={{ color: "#d32f2f", fontWeight: "bold" }}>{status}</div>);
+    return result;
+  };
+
+interface ServingTimeData {
+  assignmentId: string;
+  planId: string;
+  planName: string;
+  serviceDate: Date;
+  position: string;
+  status: string;
+}
+
+const getRows = () => {
+  const data: ServingTimeData[] = [];
+  props.assignments.forEach((assignment) => {
+    const position = props?.positions.find((p) => p.id === assignment.positionId);
+    const plan = props?.plans.find((p) => p.id === position?.planId);
+    if (position && plan) data.push({ assignmentId: assignment.id, planId: plan.id, planName: plan.name, serviceDate: DateHelper.toDate(plan.serviceDate), position: position.name, status: assignment.status || "Unconfirmed" });
+  });
+  ArrayHelper.sortBy(data, "serviceDate", true);
+  const rows:React.ReactElement[] = [];
+  data.forEach((d) => {
+    rows.push(
+      <TableRow key={d.planId}>
+        <TableCell><Link href={"/my/plans/" + d.planId} data-testid={`serving-plan-${d.planId}-link`}>{d.planName}</Link></TableCell>
+        <TableCell>{DateHelper.prettyDate(d.serviceDate)}</TableCell>
+        <TableCell>{d.position}</TableCell>
+        <TableCell>{getStatusLabel(d.status)}</TableCell>
+      </TableRow>
+    );
+  });
+  return rows;
+};
+
+return (<DisplayBox headerIcon="assignment" headerText="Serving Times">
+  <Table>
+    <TableHead>
+      <TableRow>
+        <TableCell>Plan</TableCell>
+        <TableCell>Service Date</TableCell>
+        <TableCell>Role</TableCell>
+        <TableCell>Status</TableCell>
+      </TableRow>
+    </TableHead>
+    <TableBody>
+      {getRows()}
+    </TableBody>
+  </Table>
+</DisplayBox>);
+};
+

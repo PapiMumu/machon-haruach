@@ -1,0 +1,5 @@
+node_modules/
+dist/
+publish/
+*.tgz
+package-lock.json

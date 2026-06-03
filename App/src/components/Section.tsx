@@ -1,0 +1,138 @@
+"use client";
+
+import React, { CSSProperties, useState } from "react";
+import { ElementInterface, SectionInterface } from "@/helpers";
+import { Box, Container } from "@mui/material";
+import { DraggableWrapper, DroppableArea } from "@machonharuach/apphelper-website";
+import { Element } from "./Element";
+import { YoutubeBackground } from "./YoutubeBackground";
+import { ApiHelper } from "@machonharuach/apphelper";
+import type { AppearanceInterface } from "@machonharuach/helpers/dist/AppearanceHelper";
+import type { ChurchInterface } from "@machonharuach/helpers";
+import { StyleHelper } from "@machonharuach/apphelper-website";
+
+interface Props {
+  first?: boolean,
+  section: SectionInterface,
+  church?: ChurchInterface;
+  churchSettings: AppearanceInterface;
+  onEdit?: (section: SectionInterface, element: ElementInterface) => void;
+  onMove?: () => void;
+}
+
+export const Section: React.FC<Props> = props => {
+  const [isDragging, setIsDragging] = useState(false);
+
+
+  const getElements = () => {
+    const result: React.ReactElement[] = [];
+    props.section?.elements?.forEach(e => {
+      const textColor = StyleHelper.getTextColor(props.section?.textColor, {}, props.churchSettings);
+      result.push(<Element key={e.id} element={e} onEdit={props.onEdit} onMove={props.onMove} church={props.church} churchSettings={props.churchSettings} textColor={textColor} />);
+    });
+    return result;
+  };
+
+  const getStyle = () => {
+
+    let result: CSSProperties = {};
+    const bg = props.section.background;
+    if (bg && bg.indexOf("/") > -1) {
+      result = { backgroundImage: "url('" + bg + "')" };
+    } else if (bg) {
+      result = { background: bg };
+    }
+    if (props.section.textColor?.startsWith("var(")) result.color = props.section.textColor;
+
+    result = { ...result };
+    return result;
+  };
+
+  const getVideoClassName = () => {
+    let result = "sectionVideo";
+    if (props.section.textColor === "light") result += " sectionDark";
+    if (props.first) result += " sectionFirst";
+    if (props.onEdit) result += " sectionWrapper";
+    return result;
+  };
+
+  const getClassName = () => {
+    let result = "section";
+    const bg = props.section.background;
+    if (bg && bg.indexOf("/") > -1) result += " sectionBG";
+    if (props.section.textColor === "light") result += " sectionDark";
+    if (props.first) result += " sectionFirst";
+    if (props.onEdit) result += " sectionWrapper";
+
+    let hc = props.section.headingColor;
+    if (hc) {
+      hc = hc.replace("var(--", "").replace(")", "");
+      result += " headings" + hc[0].toUpperCase() + hc.slice(1);
+    }
+    let lc = props.section.linkColor;
+    if (lc) {
+      lc = lc.replace("var(--", "").replace(")", "");
+      result += " links" + lc[0].toUpperCase() + lc.slice(1);
+    }
+
+    return result;
+  };
+
+  interface DropData {
+    data?: ElementInterface;
+    elementType?: string;
+    blockId?: string;
+  }
+
+  const handleDrop = (data: DropData, sort: number) => {
+    if (data.data) {
+      const element: ElementInterface = data.data;
+      element.sort = sort;
+      element.sectionId = props.section.id;
+      ApiHelper.post("/elements", [element], "ContentApi").then(() => { props.onMove(); });
+    } else {
+      const element: ElementInterface = { sectionId: props.section.id, elementType: data.elementType, sort, blockId: props.section.blockId };
+      if (data.blockId) element.answersJSON = JSON.stringify({ targetBlockId: data.blockId });
+      else if (data.elementType === "row") element.answersJSON = JSON.stringify({ columns: "6,6" });
+      else if (data.elementType === "box") element.answersJSON = JSON.stringify({ background: "var(--light)", text: "var(--dark)" });
+      props.onEdit(null, element);
+    }
+  };
+
+  const getAddElement = (s: number) => {
+    const sort = s;
+    return (<DroppableArea accept={["element", "elementBlock"]} onDrop={(data) => handleDrop(data, sort)} updateIsDragging={(dragging) => setIsDragging(dragging)} />);
+  };
+
+  const contents = (<Container>
+    {props.onEdit && getAddElement(0)}
+    {getElements()}
+  </Container>);
+
+
+  const getSectionAnchor = () => {
+    if (props.section.answers?.sectionId) return <a id={String(props.section.answers?.sectionId)} className="sectionAnchor"></a>;
+    else return <></>;
+  };
+
+  const getId = () => {
+    let result = "section-" + props.section.answers?.sectionId?.toString();
+    if (result === "section-undefined") result = "section-" + props.section.id;
+    return result;
+  };
+
+  let result = <></>;
+  const sectionBg = props.section.background;
+  if (sectionBg && sectionBg.indexOf("youtube:") > -1) {
+    const youtubeId = sectionBg.split(":")[1];
+    result = (<>{getSectionAnchor()}<YoutubeBackground isDragging={isDragging} id={getId()} videoId={youtubeId} overlay="rgba(0,0,0,.4)" contentClassName={getVideoClassName()}>{contents}</YoutubeBackground></>);
+  } else result = (<>{getSectionAnchor()}<Box component="div" sx={{ ":before": { opacity: (props.section.answers?.backgroundOpacity) ? props.section.answers.backgroundOpacity + " !important" : "" } }} style={getStyle()} className={getClassName()} id={getId()}>{contents}</Box></>);
+
+  if (props.onEdit) {
+    return (
+      <DraggableWrapper dndType="section" elementType="section" data={props.section} onDoubleClick={() => props.onEdit(props.section, null)}>
+        {result}
+      </DraggableWrapper>
+    );
+  } else return result;
+};

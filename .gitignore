@@ -1,0 +1,64 @@
+# Machon HaRuach monorepo — secrets, dependencies, and build outputs
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+aws-credentials.json
+.aws/
+
+# Dependencies
+node_modules/
+
+# API / Serverless
+Api/layer/
+Api/.serverless/
+Api/.webpack/
+put-ssm-*.sh
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.serverless/
+.serverless_nextjs/
+*.tsbuildinfo
+
+# Mobile / Expo / native
+.expo/
+android/app/build/
+ios/Pods/
+*.jks
+*.p8
+*.p12
+*.keystore
+!debug.keystore
+*.mobileprovision
+
+# Firebase (keep local copies; do not commit)
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Certificates and keys
+*.pem
+
+# IDE and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.cursor/
+.serena/
+.claude/
+
+# Logs and test artifacts
+*.log
+coverage/
+test-results/
+playwright-report/
+
+# Misc local notes
+Notes.md
+CODE_REVIEW.md

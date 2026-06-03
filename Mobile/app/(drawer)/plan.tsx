@@ -1,0 +1,375 @@
+import React, { useMemo, useState } from "react";
+import { useThemeColors } from "@/theme";
+import { BlockoutDates } from "../../src/components/Plans/BlockoutDates";
+import { PlansTabBar } from "../../src/components/Plans/PlansTabBar";
+import { ServingTimes } from "../../src/components/Plans/ServingTimes";
+import { UpcomingDates } from "../../src/components/Plans/UpcomingDates";
+import { MainHeader } from "../../src/components/wrapper/MainHeader";
+import { ArrayHelper, DateHelper } from "@/helpers/index";
+import { AssignmentInterface, PlanInterface, PositionInterface, TimeInterface } from "@/helpers/Interfaces";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { DrawerNavigationProp } from "@react-navigation/drawer";
+import { DrawerActions } from "@react-navigation/native";
+import { useNavigation as useReactNavigation, useRouter } from "expo-router";
+import { useNavigation } from "../../src/hooks";
+import { Text, View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { useCurrentUserChurch } from "../../src/stores/useUserStore";
+import { Card } from "react-native-paper";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { InlineLoader } from "../../src/components/common/LoadingComponents";
+import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
+import dayjs from "../../src/helpers/dayjsConfig";
+
+const Plan = () => {
+  const tc = useThemeColors();
+  const { t } = useTranslation();
+  const navigation = useReactNavigation<DrawerNavigationProp<any>>();
+  const currentUserChurch = useCurrentUserChurch();
+  const router = useRouter();
+  const { navigateBack } = useNavigation();
+  const [activeSection, setActiveSection] = useState<"upcoming" | "past">("upcoming");
+
+  // Use react-query for assignments - this is the starting point
+  const { data: assignments = [], isLoading: assignmentsLoading } = useQuery<AssignmentInterface[]>({
+    queryKey: ["/assignments/my", "DoingApi"],
+    enabled: !!currentUserChurch?.jwt,
+    placeholderData: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 15 * 60 * 1000 // 15 minutes
+  });
+
+  // Extract position IDs from assignments
+  const positionIds = ArrayHelper.getUniqueValues(assignments, "positionId");
+
+  // Use react-query for positions - depends on assignments
+  const { data: positions = [], isLoading: positionsLoading } = useQuery<PositionInterface[]>({
+    queryKey: ["/positions/ids?ids=" + positionIds, "DoingApi"],
+    enabled: !!currentUserChurch?.jwt && assignments.length > 0 && positionIds.length > 0,
+    placeholderData: [],
+    staleTime: 10 * 60 * 1000, // 10 minutes - positions change less frequently
+    gcTime: 30 * 60 * 1000 // 30 minutes
+  });
+
+  // Extract plan IDs from positions
+  const planIds = ArrayHelper.getUniqueValues(positions, "planId");
+
+  // Use react-query for plans - depends on positions
+  const { data: plans = [], isLoading: plansLoading } = useQuery<PlanInterface[]>({
+    queryKey: ["/plans/ids?ids=" + planIds, "DoingApi"],
+    enabled: !!currentUserChurch?.jwt && positions.length > 0 && planIds.length > 0,
+    placeholderData: [],
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000 // 30 minutes
+  });
+
+  // Use react-query for times - depends on positions (same planIds)
+  const { data: times = [], isLoading: timesLoading } = useQuery<TimeInterface[]>({
+    queryKey: ["/times/plans?planIds=" + planIds, "DoingApi"],
+    enabled: !!currentUserChurch?.jwt && positions.length > 0 && planIds.length > 0,
+    placeholderData: [],
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000 // 30 minutes
+  });
+
+  const isLoading = assignmentsLoading || positionsLoading || plansLoading || timesLoading;
+
+  // Get start of today for consistent filtering (includes events from earlier today in "upcoming")
+  const startOfToday = useMemo(() => dayjs().startOf("day").toDate(), []);
+
+  // Filter for upcoming plans (serviceDate >= start of today)
+  const upcomingPlans = useMemo(() => plans.filter(p => p.serviceDate && DateHelper.toDate(p.serviceDate) >= startOfToday), [plans, startOfToday]);
+
+  // Filter for past plans (serviceDate < start of today)
+  const pastPlans = useMemo(() => plans.filter(p => p.serviceDate && DateHelper.toDate(p.serviceDate) < startOfToday), [plans, startOfToday]);
+
+  // Filter assignments for upcoming plans only (used for hero stats)
+  const upcomingAssignments = useMemo(() => {
+    const upcomingPlanIds = upcomingPlans.map(p => p.id);
+    return assignments.filter(a => {
+      const position = positions.find(p => p.id === a.positionId);
+      return position && upcomingPlanIds.includes(position.planId);
+    });
+  }, [assignments, positions, upcomingPlans]);
+
+  // Filter assignments for past plans
+  const pastAssignments = useMemo(() => {
+    const pastPlanIds = pastPlans.map(p => p.id);
+    return assignments.filter(a => {
+      const position = positions.find(p => p.id === a.positionId);
+      return position && pastPlanIds.includes(position.planId);
+    });
+  }, [assignments, positions, pastPlans]);
+
+  // Filter positions for past plans
+  const pastPositions = useMemo(() => {
+    const pastPlanIds = pastPlans.map(p => p.id);
+    return positions.filter(p => pastPlanIds.includes(p.planId));
+  }, [positions, pastPlans]);
+
+  // Filter times for past plans
+  const pastTimes = useMemo(() => {
+    const pastPlanIds = pastPlans.map(p => p.id);
+    return times.filter(t => pastPlanIds.includes(t.planId));
+  }, [times, pastPlans]);
+
+  // Statistics for summary cards (upcoming only)
+  const planStats = useMemo(() => {
+    const requestedCount = upcomingAssignments.length;
+    const confirmedCount = upcomingAssignments.filter(a => a.status === "Confirmed" || a.status === "Accepted").length;
+    const pendingCount = upcomingAssignments.filter(a => !a.status || a.status === "Unconfirmed" || a.status === "Pending").length;
+    const nextPlan = [...upcomingPlans].sort((a, b) => DateHelper.toDate(a.serviceDate!).getTime() - DateHelper.toDate(b.serviceDate!).getTime())[0];
+
+    return {
+      requested: requestedCount,
+      confirmed: confirmedCount,
+      pending: pendingCount,
+      nextPlan
+    };
+  }, [upcomingAssignments, upcomingPlans]);
+
+  const renderHeroSection = () => (
+    <Card style={styles.heroCard}>
+      {isLoading ? (
+        <Card.Content style={styles.loadingHeroContent}>
+          <InlineLoader size="large" text={t("plans.loadingSchedule")} />
+        </Card.Content>
+      ) : (
+        <LinearGradient colors={["#0D47A1", "#2196F3"]} style={styles.heroGradient}>
+          <View style={styles.heroContent}>
+            <MaterialIcons name="assignment" size={48} color="white" style={styles.heroIcon} />
+            <Text style={styles.heroTitle}>{t("plans.yourServingSchedule")}</Text>
+            <Text style={styles.heroSubtitle}>
+              {planStats.confirmed} {t("plans.confirmed")} • {planStats.pending} {t("plans.pending")}
+            </Text>
+            {planStats.nextPlan && (
+              <View style={styles.nextPlanContainer}>
+                <Text style={styles.nextPlanLabel}>{t("plans.nextService")}</Text>
+                <Text style={styles.nextPlanDate}>{dayjs(DateHelper.toDate(planStats.nextPlan.serviceDate)).format("ll")}</Text>
+              </View>
+            )}
+          </View>
+        </LinearGradient>
+      )}
+    </Card>
+  );
+
+  const renderStatsCards = () => (
+    <View style={styles.statsContainer}>
+      <Card style={styles.statCard}>
+        <Card.Content style={styles.statContent}>
+          <MaterialIcons name="assignment" size={32} color="#2196F3" />
+          {isLoading ? (
+            <InlineLoader text={t("common.loading")} />
+          ) : (
+            <>
+              <Text style={styles.statNumber}>{planStats.requested}</Text>
+              <Text style={styles.statLabel}>{t("plans.requested")}</Text>
+            </>
+          )}
+        </Card.Content>
+      </Card>
+      <Card style={styles.statCard}>
+        <Card.Content style={styles.statContent}>
+          <MaterialIcons name="event-available" size={32} color="#388E3C" />
+          {isLoading ? (
+            <InlineLoader text={t("common.loading")} />
+          ) : (
+            <>
+              <Text style={styles.statNumber}>{planStats.confirmed}</Text>
+              <Text style={styles.statLabel}>{t("plans.confirmed")}</Text>
+            </>
+          )}
+        </Card.Content>
+      </Card>
+      <Card style={styles.statCard}>
+        <Card.Content style={styles.statContent}>
+          <MaterialIcons name="schedule" size={32} color="#FEAA24" />
+          {isLoading ? (
+            <InlineLoader text={t("common.loading")} />
+          ) : (
+            <>
+              <Text style={styles.statNumber}>{planStats.pending}</Text>
+              <Text style={styles.statLabel}>{t("plans.pending")}</Text>
+            </>
+          )}
+        </Card.Content>
+      </Card>
+    </View>
+  );
+
+  return (
+    <SafeAreaProvider>
+      <View style={[styles.container, { backgroundColor: tc.background }]}>
+        <MainHeader title={t("plans.plans")} openDrawer={() => navigation.dispatch(DrawerActions.openDrawer())} back={() => navigateBack()} />
+        <PlansTabBar activeSection={activeSection} onTabChange={setActiveSection} />
+        <View style={[styles.contentContainer, { backgroundColor: tc.background }]}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {activeSection === "upcoming" && (
+              <>
+                {renderHeroSection()}
+                {renderStatsCards()}
+                <ServingTimes assignments={upcomingAssignments} positions={positions} plans={upcomingPlans} isLoading={isLoading} />
+                {/* <UpcomingDates assignments={upcomingAssignments} positions={positions} plans={upcomingPlans} times={times} isLoading={isLoading} /> */}
+                <BlockoutDates />
+                <Card style={styles.volunteerCard}>
+                  <TouchableOpacity onPress={() => router.push("/(drawer)/(tabs)/volunteerBrowse")} activeOpacity={0.7}>
+                    <Card.Content style={styles.volunteerContent}>
+                      <MaterialIcons name="volunteer-activism" size={32} color="#0D47A1" />
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.volunteerTitle}>{t("volunteer.browseVolunteer")}</Text>
+                        <Text style={styles.volunteerSubtitle}>{t("volunteer.browseOpportunities")}</Text>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={24} color="#9E9E9E" />
+                    </Card.Content>
+                  </TouchableOpacity>
+                </Card>
+              </>
+            )}
+            {activeSection === "past" && (
+              <UpcomingDates assignments={pastAssignments} positions={pastPositions} plans={pastPlans} times={pastTimes} isLoading={isLoading} isPast={true} />
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </SafeAreaProvider>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F6F6F8"
+  },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: "#F6F6F8"
+  },
+  scrollView: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 16,
+    paddingBottom: 32
+  },
+
+  // Hero Section
+  heroCard: {
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 6,
+    shadowColor: "#0D47A1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8
+  },
+  heroGradient: {
+    padding: 24,
+    minHeight: 180
+  },
+  heroContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1
+  },
+  heroIcon: { marginBottom: 12 },
+  heroTitle: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 8,
+    textAlign: "center"
+  },
+  heroSubtitle: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    opacity: 0.9,
+    textAlign: "center",
+    marginBottom: 16
+  },
+  nextPlanContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center"
+  },
+  nextPlanLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    opacity: 0.8,
+    marginBottom: 4
+  },
+  nextPlanDate: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600"
+  },
+
+  // Stats Cards
+  statsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3
+  },
+  statContent: {
+    alignItems: "center",
+    padding: 16
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#3c3c3c",
+    marginTop: 8,
+    marginBottom: 4
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#9E9E9E",
+    fontWeight: "500",
+    textAlign: "center"
+  },
+
+  // Loading States
+  loadingHeroContent: {
+    alignItems: "center",
+    padding: 60
+  },
+
+  // Volunteer Browse Card
+  volunteerCard: {
+    marginTop: 24,
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3
+  },
+  volunteerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16
+  },
+  volunteerTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#3c3c3c"
+  },
+  volunteerSubtitle: {
+    fontSize: 13,
+    color: "#9E9E9E",
+    marginTop: 2
+  }
+});
+
+export default Plan;

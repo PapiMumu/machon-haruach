@@ -1,0 +1,263 @@
+import React from "react";
+import { Button, Chip, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, FormControl, Grid, InputLabel, List, ListItem, ListItemText, OutlinedInput, Stack, TextField } from "@mui/material";
+import { type PlanItemInterface, type SongDetailInterface } from "../../helpers";
+import { ApiHelper, ArrayHelper, Locale } from "@machonharuach/apphelper";
+import { shouldShowLabel, shouldShowDescription, shouldShowDuration } from "./planItemUtils";
+
+interface Props {
+  planItem: PlanItemInterface;
+  onDone: () => void;
+}
+
+export const PlanItemEdit = (props: Props) => {
+  const [planItem, setPlanItem] = React.useState<PlanItemInterface | null>(null);
+  const [searchText, setSearchText] = React.useState("");
+  const [songs, setSongs] = React.useState<SongDetailInterface[]>([]);
+  const [, setErrors] = React.useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [searching, setSearching] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setErrors([]);
+    const pi = { ...planItem } as PlanItemInterface;
+    if (isNaN(pi.seconds)) pi.seconds = 0;
+    const value = e.target.value;
+    switch (e.target.name) {
+      case "label": pi.label = value; break;
+      case "description": pi.description = value; break;
+      case "minutes": pi.seconds = parseInt(value) * 60 + (pi.seconds % 60); break;
+      case "seconds": pi.seconds = Math.floor(pi.seconds / 60) * 60 + parseInt(value); break;
+    }
+    setPlanItem(pi);
+  };
+
+  const loadData = React.useCallback(() => {
+    setPlanItem(props.planItem);
+  }, [props.planItem]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await ApiHelper.post("/planItems", [planItem], "DoingApi");
+      props.onDone();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const getHeaderText = () => {
+    if (planItem?.itemType === "header") return Locale.label("plans.planItemEdit.editHeader");
+    else if (planItem?.itemType === "arrangementKey") return Locale.label("plans.planItemEdit.editSong");
+    else if (planItem?.itemType === "lessonAddOn" || planItem?.itemType === "addon" || planItem?.itemType === "providerFile") return Locale.label("plans.planItemEdit.editAddOn") || "Edit Add-On";
+    return Locale.label("plans.planItemEdit.edit");
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(e.currentTarget.value);
+  };
+
+  const handleSearch = () => {
+    setErrors([]);
+    if (searchText === "") {
+      setErrors([Locale.label("plans.planItemEdit.enterSearch")]);
+      return;
+    } else {
+      setSearching(true);
+      ApiHelper.get("/songs/search?q=" + encodeURIComponent(searchText), "ContentApi").then((data) => {
+        setSongs(data);
+        setSearching(false);
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await ApiHelper.delete("/planItems/" + planItem.id, "DoingApi");
+      props.onDone();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const selectSong = (song: SongDetailInterface) => {
+    const pi = {
+      ...planItem,
+      relatedId: song.arrangementKeyId,
+      label: song.title,
+      description: `${song.artist} - ${song.shortDescription || ""} (${song.arrangementKeySignature || ""})`,
+      seconds: song.seconds,
+      thumbnailUrl: song.thumbnail
+    };
+    setPlanItem(pi);
+    setSongs([]);
+    ApiHelper.post("/planItems", [pi], "DoingApi").then(() => {
+      props.onDone();
+    });
+  };
+
+  const getSongs = () => {
+    if (searching) return <CircularProgress size={24} sx={{ display: "block", mx: "auto", my: 2 }} />;
+    const songDetails: SongDetailInterface[] = [];
+    songs.forEach((song) => {
+      if (songDetails.findIndex((sd) => sd.id === song.id) === -1) {
+        songDetails.push(song);
+      }
+    });
+    return (
+      <List dense>
+        {songDetails.map((sd) => {
+          const keys = ArrayHelper.getAll(songs, "id", sd.id);
+          return (
+            <ListItem key={sd.id} sx={{ flexDirection: "column", alignItems: "flex-start" }}>
+              <ListItemText primary={`${sd.title} - ${sd.artist}`} />
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                {keys.map((k: any) => (
+                  <Chip
+                    key={k.arrangementKeyId}
+                    label={`${k.shortDescription} (${k.arrangementKeySignature})`}
+                    size="small"
+                    clickable
+                    onClick={() => selectSong(k)}
+                  />
+                ))}
+              </Stack>
+            </ListItem>
+          );
+        })}
+      </List>
+    );
+  };
+
+  const getSongFields = () => {
+    return (
+      <>
+        <FormControl fullWidth variant="outlined">
+          <InputLabel htmlFor="searchText">{Locale.label("common.search")}</InputLabel>
+          <OutlinedInput
+            id="searchText"
+            aria-label="searchBox"
+            name="searchText"
+            type="text"
+            label={Locale.label("common.name")}
+            value={searchText}
+            onChange={handleSearchChange}
+            data-testid="song-search-input"
+            endAdornment={
+              <Button variant="contained" onClick={handleSearch} data-testid="song-search-button" aria-label="Search songs">
+                {Locale.label("common.search")}
+              </Button>
+            }
+          />
+        </FormControl>
+        {getSongs()}
+      </>
+    );
+  };
+
+  const showLabel = shouldShowLabel(planItem?.itemType, !!planItem?.relatedId);
+  const showDesc = shouldShowDescription(planItem?.itemType, !!planItem?.relatedId);
+  const showDuration = shouldShowDuration(planItem?.itemType, !!planItem?.relatedId);
+
+  return (
+    <Dialog open={true} onClose={props.onDone} maxWidth="sm" fullWidth>
+      <DialogTitle>{getHeaderText()}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {planItem?.itemType === "arrangementKey" && getSongFields()}
+          {showLabel && (
+            <TextField
+              fullWidth
+              label={Locale.label("common.name")}
+              id="label"
+              name="label"
+              type="text"
+              value={planItem?.label}
+              onChange={handleChange}
+              placeholder={Locale.label("placeholders.planItem.label")}
+              data-testid="plan-item-name-input"
+              aria-label="Plan item name"
+            />
+          )}
+          {showDesc && (
+            <TextField
+              multiline
+              fullWidth
+              label={Locale.label("plans.planItemEdit.description")}
+              id="description"
+              name="description"
+              type="text"
+              value={planItem?.description}
+              onChange={handleChange}
+              placeholder={Locale.label("placeholders.planItem.description")}
+              data-testid="plan-item-description-input"
+              aria-label="Plan item description"
+            />
+          )}
+          {showDuration && (
+            <Grid container>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  fullWidth
+                  label={Locale.label("plans.planItemEdit.minutes")}
+                  name="minutes"
+                  type="number"
+                  value={Math.floor(planItem?.seconds / 60)}
+                  onChange={handleChange}
+                  placeholder="5"
+                  data-testid="plan-item-minutes-input"
+                  aria-label="Duration minutes"
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  fullWidth
+                  label={Locale.label("plans.planItemEdit.seconds")}
+                  name="seconds"
+                  type="number"
+                  value={planItem?.seconds % 60}
+                  onChange={handleChange}
+                  placeholder="30"
+                  data-testid="plan-item-seconds-input"
+                  aria-label="Duration seconds"
+                />
+              </Grid>
+            </Grid>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        {planItem?.id && (
+          <Button onClick={() => setShowDeleteConfirm(true)} color="error" sx={{ mr: "auto" }} disabled={isSaving}>
+            {Locale.label("common.delete") || "Delete"}
+          </Button>
+        )}
+        <Button onClick={props.onDone} variant="outlined" disabled={isSaving}>{Locale.label("common.cancel") || "Cancel"}</Button>
+        <Button onClick={handleSave} variant="contained" disabled={isSaving} startIcon={isSaving ? <CircularProgress size={16} /> : null}>
+          {Locale.label("common.save") || "Save"}
+        </Button>
+      </DialogActions>
+
+      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} maxWidth="xs">
+        <DialogTitle>{Locale.label("plans.planItemEdit.confirmDelete") || "Confirm Delete"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {Locale.label("plans.planItemEdit.confirmDeleteMessage") || "Are you sure you want to delete this item?"}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteConfirm(false)} variant="outlined" disabled={isDeleting}>{Locale.label("common.cancel") || "Cancel"}</Button>
+          <Button onClick={handleDelete} color="error" variant="contained" disabled={isDeleting} startIcon={isDeleting ? <CircularProgress size={16} /> : null}>
+            {Locale.label("common.delete") || "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Dialog>
+  );
+};

@@ -1,0 +1,18 @@
+{
+  "name": "machonharuach-packages",
+  "private": true,
+  "description": "Publish @machonharuach/* npm packages (rebrand from ChurchApps/Packages)",
+  "scripts": {
+    "rebrand:phase1": "node scripts/rebrand-scope.mjs helpers texting content-providers apihelper",
+    "rebrand:phase2": "node scripts/rebrand-scope.mjs apphelper",
+    "rebrand:all": "node scripts/rebrand-scope.mjs",
+    "build:helpers": "node scripts/publish-package.mjs helpers",
+    "build:texting": "node scripts/publish-package.mjs texting",
+    "build:content-providers": "node scripts/publish-package.mjs content-providers",
+    "build:apihelper": "node scripts/publish-package.mjs apihelper",
+    "phase1:build": "npm run rebrand:phase1 && npm run build:helpers && npm run build:texting && npm run build:content-providers && npm run build:apihelper",
+    "phase1:publish": "npm run phase1:build && node scripts/publish-package.mjs helpers --publish && node scripts/publish-package.mjs texting --publish && node scripts/publish-package.mjs content-providers --publish && node scripts/publish-package.mjs apihelper --publish",
+    "phase2:build": "npm run rebrand:phase2 && node scripts/publish-package.mjs apphelper && node scripts/prepare-split-apphelper.mjs",
+    "phase2:publish": "npm run phase2:build && node scripts/publish-package.mjs publish/apphelper --publish && node scripts/publish-package.mjs publish/apphelper-donations --publish && node scripts/publish-package.mjs publish/apphelper-forms --publish && node scripts/publish-package.mjs publish/apphelper-login --publish && node scripts/publish-package.mjs publish/apphelper-markdown --publish && node scripts/publish-package.mjs publish/apphelper-website --publish"
+  }
+}

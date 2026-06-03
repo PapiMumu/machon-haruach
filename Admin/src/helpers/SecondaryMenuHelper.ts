@@ -1,0 +1,197 @@
+import { Locale, UserHelper, Permissions } from "@machonharuach/apphelper";
+
+interface MenuItem {
+  url: string;
+  label: string;
+  icon?: string;
+}
+
+export class SecondaryMenuHelper {
+  static getSecondaryMenu = (path: string, data: any) => {
+    let result: { menuItems: MenuItem[]; label: string; activeUrl?: string } = { menuItems: [], label: "" };
+
+    if (path.startsWith("/people") || path.startsWith("/groups") || path.startsWith("/attendance")) result = this.getPeopleMenu(path, data.search);
+    else if (path.startsWith("/mobile")) result = this.getMobileMenu(path);
+    else if (path.startsWith("/settings") || path.startsWith("/admin") || path.startsWith("/forms")) result = this.getSettingsMenu(path, data);
+    else if (path.startsWith("/serving")) result = this.getServingMenu(path);
+    else if (path.startsWith("/donations")) result = this.getDonationsMenu(path);
+    else if (path.startsWith("/communications")) result = this.getCommunicationsMenu(path);
+    // Legacy website CMS (formerly under Communications) — routes remain at /site, /calendars, /registrations
+    // else if (path.startsWith("/site") || path.startsWith("/calendars") || path.startsWith("/registrations")) result = this.getSiteMenu(path);
+    else if (path.startsWith("/sermons")) result = this.getSermonsMenu(path);
+    else if (path.startsWith("/profile")) result = this.getProfileMenu(path);
+    else if (path === "/" || path.startsWith("/dashboard")) result = this.getDashboardMenu(path);
+    return result;
+  };
+
+  static getPeopleMenu = (path: string, search?: string) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = "";
+    const query = new URLSearchParams(search || "");
+    const teamTagSelected = query.get("tag") === "team";
+    menuItems.push({ url: "/groups", label: Locale.label("components.wrapper.groups"), icon: "groups" });
+    if (UserHelper.checkAccess(Permissions.membershipApi.plans.edit)) menuItems.push({ url: "/groups?tag=team", label: Locale.label("components.wrapper.teams"), icon: "people" });
+    menuItems.push({ url: "/people", label: Locale.label("components.wrapper.ppl"), icon: "person" });
+    if (UserHelper.checkAccess(Permissions.attendanceApi.attendance.viewSummary)) menuItems.push({ url: "/attendance", label: Locale.label("components.wrapper.att"), icon: "calendar_month" });
+
+    if (path.startsWith("/groups") && teamTagSelected) label = Locale.label("components.wrapper.teams");
+    else if (path.startsWith("/groups")) label = Locale.label("components.wrapper.groups");
+    else if (path.startsWith("/people")) label = Locale.label("components.wrapper.ppl");
+    else if (path.startsWith("/attendance")) label = Locale.label("components.wrapper.att");
+
+    return { menuItems, label };
+  };
+
+  static getSettingsMenu = (path: string, data: any) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = "";
+    const rolesLabel = Locale.label("settings.roles.roles") || "Roles";
+    const settingsLabel = Locale.label("components.wrapper.set") || "Settings";
+
+    if (UserHelper.checkAccess(Permissions.membershipApi.roles.view)) {
+      menuItems.push({ url: "/settings", label: settingsLabel, icon: "settings" });
+      menuItems.push({ url: "/settings#roles", label: rolesLabel, icon: "lock" });
+    }
+    if (UserHelper.checkAccess(Permissions.membershipApi.server.admin)) {
+      menuItems.push({ url: "/admin", label: Locale.label("components.wrapper.servAdmin"), icon: "admin_panel_settings" });
+    }
+    if (data.formPermission) menuItems.push({ url: "/forms", label: Locale.label("components.wrapper.forms"), icon: "description" });
+
+    const onRoles =
+      path.includes("/settings/role") || (path.startsWith("/settings") && data.hash === "#roles");
+
+    if (onRoles) label = rolesLabel;
+    else if (path.startsWith("/settings")) label = settingsLabel;
+    else if (path.startsWith("/admin")) label = Locale.label("components.wrapper.servAdmin");
+    else if (path.startsWith("/forms")) label = Locale.label("components.wrapper.forms");
+
+    const activeUrl = onRoles
+      ? "/settings#roles"
+      : path.startsWith("/admin")
+        ? "/admin"
+        : path.startsWith("/forms")
+          ? "/forms"
+          : path.startsWith("/settings")
+            ? "/settings"
+            : undefined;
+
+    return { menuItems, label, activeUrl };
+  };
+
+  static getMobileMenu = (path: string) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = Locale.label("common.mobile");
+    menuItems.push({ url: "/mobile/navigation", label: Locale.label("common.navigation"), icon: "menu" });
+    menuItems.push({ url: "/mobile/theme", label: Locale.label("common.appTheme"), icon: "palette" });
+    menuItems.push({ url: "/mobile/app", label: Locale.label("common.b1Mobile"), icon: "phone_android" });
+    menuItems.push({ url: "/mobile/checkin", label: Locale.label("common.b1CheckIn"), icon: "qr_code" });
+
+    if (path.startsWith("/mobile/theme")) label = Locale.label("common.appTheme");
+    else if (path.startsWith("/mobile/app")) label = Locale.label("common.b1Mobile");
+    else if (path.startsWith("/mobile/checkin")) label = Locale.label("common.b1CheckIn");
+    else if (path.startsWith("/mobile")) label = Locale.label("common.navigation");
+
+    return { menuItems, label };
+  };
+
+  static getProfileMenu = (path:string) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = "";
+    if (path.startsWith("/profile")) label = "Profile";
+    menuItems.push({ url: "/profile", label: "Profile", icon: "person" });
+    menuItems.push({ url: "/profile/devices", label: "Devices", icon: "devices" });
+    return { menuItems, label };
+  };
+
+  static getServingMenu = (path: string) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = "";
+    if (UserHelper.checkAccess(Permissions.membershipApi.plans.edit)) {
+      menuItems.push({ url: "/serving", label: Locale.label("components.wrapper.plans"), icon: "assignment" });
+    }
+    menuItems.push({ url: "/serving/tasks", label: Locale.label("components.wrapper.tasks"), icon: "list_alt" });
+
+    if (path.startsWith("/serving/tasks")) label = Locale.label("components.wrapper.tasks");
+    else if (path.startsWith("/serving")) label = Locale.label("components.wrapper.plans");
+
+    return { menuItems, label };
+  };
+
+  static getDonationsMenu = (path: string) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = "";
+    if (UserHelper.checkAccess(Permissions.givingApi.donations.viewSummary)) menuItems.push({ url: "/donations", label: Locale.label("donations.donations.summary"), icon: "volunteer_activism" });
+    if (UserHelper.checkAccess(Permissions.givingApi.donations.viewSummary)) menuItems.push({ url: "/donations/batches", label: Locale.label("donations.donations.batches"), icon: "folder" });
+    if (UserHelper.checkAccess(Permissions.givingApi.donations.viewSummary)) menuItems.push({ url: "/donations/funds", label: Locale.label("donations.donations.funds"), icon: "account_balance" });
+    if (UserHelper.checkAccess(Permissions.givingApi.donations.viewSummary)) menuItems.push({ url: "/donations/statements", label: Locale.label("donations.donations.statements") || "Giving Statements", icon: "description" });
+
+    if (path.startsWith("/donations/stripe-import") || path.startsWith("/donations/donorbox-reconciliation")) label = "Donorbox Reconciliation";
+    else if (path.startsWith("/donations/statements")) label = Locale.label("donations.donations.statements") || "Giving Statements";
+    else if (path.startsWith("/donations/funds")) label = Locale.label("donations.donations.funds");
+    else if (path.startsWith("/donations/batches")) label = Locale.label("donations.donations.batches");
+    else if (path.startsWith("/donations")) label = Locale.label("donations.donations.summary");
+
+    return { menuItems, label };
+  };
+
+  static getDashboardMenu = (path: string) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = "";
+    menuItems.push({ url: "/", label: "Home", icon: "flash_on" });
+    menuItems.push({ url: "/dashboard", label: Locale.label("components.wrapper.dash"), icon: "dashboard" });
+
+    if (path === "/") label = "Home";
+    else if (path.startsWith("/dashboard")) label = Locale.label("components.wrapper.dash");
+
+    return { menuItems, label };
+  };
+
+  /** @deprecated Website CMS was moved out of Communications; kept for reference if Website nav is restored. */
+  static getSiteMenu = (_path: string) => {
+    const menuItems: MenuItem[] = [];
+    const label = "Website";
+    // menuItems.push({ url: "/site/pages", label: "Pages", icon: "article" });
+    // menuItems.push({ url: "/site/blocks", label: "Blocks", icon: "widgets" });
+    // menuItems.push({ url: "/site/appearance", label: "Appearance", icon: "palette" });
+    // menuItems.push({ url: "/site/files", label: "Files", icon: "folder_open" });
+    // menuItems.push({ url: "/calendars", label: "Calendars", icon: "calendar_month" });
+    // menuItems.push({ url: "/registrations", label: "Registrations", icon: "how_to_reg" });
+    return { menuItems, label };
+  };
+
+  static getCommunicationsMenu = (path: string) => {
+    const menuItems: MenuItem[] = [];
+    const sendLabel = Locale.label("communications.menu.send", "Send");
+    const historyLabel = Locale.label("communications.menu.history", "History");
+
+    if (UserHelper.checkAccess(Permissions.messagingApi.texting.send)) {
+      menuItems.push({ url: "/communications", label: sendLabel, icon: "sms" });
+      menuItems.push({ url: "/communications/history", label: historyLabel, icon: "history" });
+    }
+
+    // Match active pill in app bar (#secondaryMenu highlights item when label === item.label)
+    const label = path.includes("/history") ? historyLabel : sendLabel;
+
+    return { menuItems, label };
+  };
+
+  static getSermonsMenu = (path: string) => {
+    const menuItems: MenuItem[] = [];
+    let label: string = "";
+    menuItems.push({ url: "/sermons/playlists", label: "Playlists", icon: "video_library" });
+    menuItems.push({ url: "/sermons", label: Locale.label("sermons.videosTab", "Videos"), icon: "live_tv" });
+    if (UserHelper.checkAccess(Permissions.membershipApi.plans.edit) || UserHelper.checkAccess(Permissions.contentApi.content.edit)) {
+      menuItems.push({ url: "/sermons/songs", label: Locale.label("components.wrapper.songs"), icon: "music_note" });
+    }
+    menuItems.push({ url: "/sermons/times", label: "Live Stream Times", icon: "schedule" });
+    menuItems.push({ url: "/sermons/bulk", label: "Bulk Import", icon: "cloud_upload" });
+
+    if (path.startsWith("/sermons/songs")) label = Locale.label("components.wrapper.songs");
+    else if (path.startsWith("/sermons/bulk")) label = "Bulk Import";
+    else if (path.startsWith("/sermons/times")) label = "Live Stream Times";
+    else if (path.startsWith("/sermons/playlists")) label = "Playlists";
+    else if (path.startsWith("/sermons")) label = Locale.label("sermons.videosTab", "Videos");
+
+    return { menuItems, label };
+  };
+}

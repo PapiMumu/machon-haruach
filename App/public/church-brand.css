@@ -1,0 +1,7 @@
+/* Overrides @machonharuach/apphelper SiteHeader inline blues (Goodnews spirit blue + GNW logo) */
+#site-header {
+  --c1: #2f3465 !important;
+  --c1d1: #252a52 !important;
+  --c1d2: #1c203f !important;
+  --c1l2: #4b5288 !important;
+}

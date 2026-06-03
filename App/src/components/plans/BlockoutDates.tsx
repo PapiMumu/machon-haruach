@@ -1,0 +1,66 @@
+import React, { useEffect } from "react";
+import { ApiHelper } from "@machonharuach/apphelper";
+import { DateHelper } from "@machonharuach/apphelper";
+import { DisplayBox } from "@machonharuach/apphelper";
+import type { BlockoutDateInterface } from "@machonharuach/helpers";
+import { TableRow, TableCell, Table, TableHead, TableBody, IconButton, Icon } from "@mui/material";
+import { BlockoutDateEdit } from "./BlockoutDateEdit";
+
+interface Props {
+}
+
+export const BlockoutDates: React.FC<Props> = (props) => {
+  const [blockoutDates, setBlockoutDates] = React.useState<BlockoutDateInterface[]>([]);
+  const [blockoutDate, setBlockoutDate] = React.useState<BlockoutDateInterface>(null);
+
+  const loadData = () => {
+    ApiHelper.get("/blockoutDates/my", "DoingApi").then((data: BlockoutDateInterface[]) => setBlockoutDates(data));
+    setBlockoutDate(null);
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+
+  const getRows = () => {
+
+    const rows:React.ReactElement[] = [];
+    blockoutDates.forEach((d) => {
+      rows.push(
+        <TableRow key={d.id}>
+          <TableCell>{DateHelper.prettyDate(DateHelper.toDate(d.startDate))}</TableCell>
+          <TableCell>{DateHelper.prettyDate(DateHelper.toDate(d.endDate))}</TableCell>
+          <TableCell>
+            <IconButton onClick={() => setBlockoutDate(d)} data-testid={`blockout-edit-${d.id}-button`}><Icon>edit</Icon></IconButton>
+          </TableCell>
+        </TableRow>
+      );
+    });
+    return rows;
+  };
+
+  const handleAdd = () => {
+    setBlockoutDate({ startDate: new Date(), endDate: new Date() });
+  };
+
+  const addLink = <IconButton onClick={handleAdd} data-testid="blockout-add-button"><Icon color="primary">add</Icon></IconButton>;
+
+  if (blockoutDate !== null) return (<BlockoutDateEdit blockoutDate={blockoutDate} onUpdate={loadData} />);
+  else {
+    return (<DisplayBox headerIcon="block" headerText="Blockout Dates" editContent={addLink}>
+      {blockoutDates.length === 0 && <div>No blockout dates.</div>}
+      {blockoutDates.length > 0 && (<Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Start Date</TableCell>
+            <TableCell>End Date</TableCell>
+            <TableCell></TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {getRows()}
+        </TableBody>
+      </Table>)}
+    </DisplayBox>);
+  }
+};
+

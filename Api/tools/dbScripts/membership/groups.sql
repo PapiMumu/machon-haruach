@@ -1,0 +1,32 @@
+DROP TABLE IF EXISTS `groups`;
+
+CREATE TABLE `groups` (
+  `id` char(11) NOT NULL,
+  `churchId` char(11) DEFAULT NULL,
+  `categoryName` varchar(50) DEFAULT NULL,
+  `name` varchar(50) DEFAULT NULL,
+  `trackAttendance` bit(1) DEFAULT NULL,
+  `parentPickup` bit(1) DEFAULT NULL,
+  `printNametag` bit(1) DEFAULT NULL,
+  `about` text DEFAULT NULL,
+  `photoUrl` varchar(255) DEFAULT NULL,
+  `removed` bit(1) DEFAULT NULL,
+  `tags` varchar(45) DEFAULT NULL,
+  `meetingTime` varchar(45) DEFAULT NULL,
+  `meetingLocation` varchar(45) DEFAULT NULL,
+  `address1` varchar(150) DEFAULT NULL,
+  `address2` varchar(150) DEFAULT NULL,
+  `city` varchar(100) DEFAULT NULL,
+  `state` varchar(100) DEFAULT NULL,
+  `country` varchar(100) DEFAULT NULL,
+  `zip` varchar(45) DEFAULT NULL,
+  `leaderName` varchar(100) DEFAULT NULL,
+  `leaderPhone` varchar(45) DEFAULT NULL,
+  `labels` varchar(500) DEFAULT NULL,
+  `slug` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `id_UNIQUE` (`id`),
+  KEY `churchId` (`churchId`),
+  KEY `churchId_removed_tags` (`churchId`, `removed`, `tags`),
+  KEY `churchId_removed_labels` (`churchId`, `removed`, `labels`)
+) ENGINE=InnoDB;

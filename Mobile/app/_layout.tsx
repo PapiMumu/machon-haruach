@@ -1,0 +1,205 @@
+import React, { useEffect } from "react";
+import { Stack, useRouter } from "expo-router";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ActionSheetProvider } from "@expo/react-native-action-sheet";
+import { useTranslation } from "react-i18next";
+
+import { initializeFirebase } from "../src/config/firebase";
+import { ThemeProvider } from "../src/theme/ThemeProvider";
+import { UserHelper } from "../src/helpers/UserHelper";
+import { queryClient, initializeQueryCache } from "../src/helpers/QueryClient";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
+import { NotificationNavigationHandler } from "../src/components/NotificationNavigationHandler";
+import { HeaderBell } from "@/components/wrapper/HeaderBell";
+import { NativeModules, Platform, StatusBar, TouchableOpacity } from "react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { AppLifecycleManager } from "../src/helpers/AppLifecycleManager";
+import { useThemeColors } from "../src/theme";
+import { useThemeContext } from "../src/theme/ThemeProvider";
+import "../src/i18n";
+import * as Sentry from "@sentry/react-native";
+import Constants from "expo-constants";
+
+function ThemedStatusBar() {
+  const { theme } = useThemeContext();
+  return (
+    <StatusBar
+      hidden={false}
+      translucent={false}
+      backgroundColor={Platform.OS === "android" ? (theme === "dark" ? "#000000" : "#FFFFFF") : "transparent"}
+      barStyle={theme === "dark" ? "light-content" : "dark-content"}
+    />
+  );
+}
+
+const youversionKey = Constants.expoConfig?.extra?.YOUVERSION_API_KEY;
+if (youversionKey && (NativeModules as { RNYouVersionPlatform?: unknown }).RNYouVersionPlatform) {
+  try {
+    const { YouVersionPlatform } = require("@youversion/platform-react-native");
+    YouVersionPlatform.configure(youversionKey);
+  } catch (error) {
+    console.warn("[YouVersion] Configuration failed — skipping.", error);
+  }
+} else if (youversionKey && __DEV__) {
+  console.warn("[YouVersion] Native module not present (e.g. Expo Go) — skipping configuration.");
+}
+
+Sentry.init({
+  dsn: "https://33dae282f3ce6781e2ae09f0e44b1dfa@o4510432524107776.ingest.us.sentry.io/4510440258469888",
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration()]
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
+
+function ThemedStack() {
+  const router = useRouter();
+  const { t } = useTranslation();
+  const tc = useThemeColors();
+
+  const toggleNotifications = (type?: string) => {
+    if (type === "notifications") {
+      router.push("/(drawer)/searchMessageUser");
+    } else {
+      router.push("/notificationsRoot");
+    }
+  };
+
+  // Default header style for most screens - uses theme-aware colors
+  const defaultHeaderOptions = {
+    headerBackTitle: "Back",
+    headerStyle: { backgroundColor: tc.headerBg },
+    headerTintColor: tc.onPrimary,
+    headerTitleAlign: "center" as const,
+    headerRight: () => <HeaderBell toggleNotifications={toggleNotifications} isDetail={true} />
+  };
+
+  // Screens configuration
+  const screens: { name: string; options?: any }[] = [
+    { name: "auth", options: { headerShown: false } },
+    { name: "index", options: { headerShown: false } },
+    { name: "welcome", options: { headerShown: false, animation: "none" } },
+    { name: "get-started", options: { headerShown: false } },
+    { name: "(drawer)", options: { headerShown: false, animation: "none" } },
+    { name: "myGroupsRoot", options: { ...defaultHeaderOptions, title: t("navigation.myGroups"), headerBackTitle: t("navigation.home") } },
+    { name: "groupDetails/[id]/index", options: { ...defaultHeaderOptions, title: "", headerBackTitle: t("navigation.myGroups") } },
+    { name: "notificationsRoot", options: { ...defaultHeaderOptions, title: t("navigation.notifications"), headerRight: () => <HeaderBell name="person-add" toggleNotifications={() => toggleNotifications("notifications")} /> } },
+    { name: "memberDetailRoot", options: { ...defaultHeaderOptions, title: t("navigation.memberDetails") } },
+    { name: "createEventRoot", options: { ...defaultHeaderOptions, title: t("navigation.createEvent") } },
+    { name: "messageScreenRoot", options: { ...defaultHeaderOptions, title: t("navigation.messages") } },
+    { name: "searchMessageUserRoot", options: { ...defaultHeaderOptions, title: t("navigation.searchMessages") } },
+    { name: "sermonsRoot", options: { ...defaultHeaderOptions, title: t("navigation.sermons") } },
+    { name: "goodNewsVideoRoot", options: { ...defaultHeaderOptions, title: "", headerRight: () => null } },
+    { name: "sermonDetails/[id]/index", options: { ...defaultHeaderOptions, title: "" } },
+    { name: "songDetails/[id]/index", options: { ...defaultHeaderOptions, title: "", headerRight: () => null } },
+    { name: "songAlbum/index", options: { ...defaultHeaderOptions, title: "", headerRight: () => null } },
+    { name: "playlistDetails/[id]/index", options: { ...defaultHeaderOptions, title: "", headerRight: () => null } },
+    {
+      name: "streamRoot",
+      options: {
+        ...defaultHeaderOptions,
+        title: t("sermons.watchLive"),
+        headerStyle: { backgroundColor: "#000000" },
+        headerTintColor: "#FFFFFF",
+        headerBackVisible: false,
+        headerRight: () => null,
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 8 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <MaterialIcons name="chevron-left" size={27} color="#FFFFFF" />
+          </TouchableOpacity>
+        )
+      }
+    },
+    { name: "pageRoot", options: { ...defaultHeaderOptions, title: "" } },
+    { name: "lessonRoot", options: { ...defaultHeaderOptions, title: "" } },
+    { name: "bibleRoot", options: { ...defaultHeaderOptions, title: t("navigation.bible") } },
+    { name: "votdRoot", options: { ...defaultHeaderOptions, title: t("navigation.verseOfTheDay") } },
+    { name: "membersSearchRoot", options: { ...defaultHeaderOptions, title: t("navigation.directory") } },
+    {
+      name: "serviceRoot",
+      options: {
+        ...defaultHeaderOptions,
+        title: t("navigation.checkin"),
+        headerStyle: { backgroundColor: "#000000" },
+        headerTintColor: "#FFFFFF",
+        headerBackVisible: false,
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 8 }}>
+            <MaterialIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        ),
+        headerRight: () => null
+      }
+    },
+    { name: "websiteUrlRoot", options: { ...defaultHeaderOptions, title: t("navigation.website") } },
+    { name: "planRoot", options: { ...defaultHeaderOptions, title: t("plans.plans") } },
+    { name: "donationRoot", options: { ...defaultHeaderOptions, title: t("donations.giving") } },
+    { name: "planDetails/[id]/index", options: { ...defaultHeaderOptions, title: t("navigation.planDetails"), headerBackTitle: t("plans.plans") } },
+    { name: "volunteerBrowseRoot", options: { ...defaultHeaderOptions, title: t("volunteer.browseOpportunities") } },
+    { name: "volunteerSignup/[planId]/index", options: { ...defaultHeaderOptions, title: t("volunteer.browseOpportunities"), headerBackTitle: t("plans.plans") } },
+    {
+      name: "registrationsRoot",
+      options: {
+        ...defaultHeaderOptions,
+        title: "",
+        headerStyle: { backgroundColor: "#000000" },
+        headerRight: () => null
+      }
+    }
+  ];
+
+  return (
+    <>
+      <ThemedStatusBar />
+      <SafeAreaProvider>
+        <NotificationNavigationHandler />
+        <Stack screenOptions={{ headerShown: true, animation: "slide_from_right" }} initialRouteName="index">
+          {screens.map(screen => (
+            <Stack.Screen key={screen.name} name={screen.name} options={screen.options} />
+          ))}
+        </Stack>
+      </SafeAreaProvider>
+    </>
+  );
+}
+
+function RootLayout() {
+  useEffect(() => {
+    const setupApp = async () => {
+      await initializeFirebase();
+      await UserHelper.loadSecureTokens();
+      await initializeQueryCache();
+      AppLifecycleManager.initialize();
+    };
+    setupApp();
+    return () => AppLifecycleManager.cleanup();
+  }, []);
+
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ActionSheetProvider>
+          <ThemeProvider>
+            <ThemedStack />
+          </ThemeProvider>
+        </ActionSheetProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}
+
+// Keep Sentry instrumentation without breaking Expo Router’s root layout loading.
+// (The prior “missing default export” warning was caused by a native-module crash during import.)
+export default Sentry.wrap(RootLayout);

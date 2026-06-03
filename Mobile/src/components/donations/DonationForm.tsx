@@ -1,0 +1,380 @@
+import { ApiHelper, CurrencyHelper, UserHelper, UserInterface } from "../../../src/helpers";
+import { FundDonationInterface, FundInterface, PersonInterface, StripeDonationInterface, StripePaymentMethod } from "../../../src/interfaces";
+import { CardField, CardFieldInput, createPaymentMethod } from "@stripe/stripe-react-native";
+import React, { useEffect, useState } from "react";
+import { Alert, View } from "react-native";
+import { Button, Card, Checkbox, IconButton, Menu, RadioButton, Text, TextInput, useTheme } from "react-native-paper";
+import { useQuery } from "@tanstack/react-query";
+import { useAppTheme } from "../../../src/theme";
+import { PreviewModal } from "../modals/PreviewModal";
+import { FundDonations } from "./FundDonations";
+import { useUser, useCurrentUserChurch } from "../../../src/stores/useUserStore";
+import { useTranslation } from "react-i18next";
+import { useMenuToggle } from "../../../src/hooks/useMenuToggle";
+import { DEFAULT_MOBILE_FUNDS } from "./fundDefaults";
+
+interface Props {
+  paymentMethods: StripePaymentMethod[];
+  customerId: string;
+  updatedFunction: () => void;
+}
+
+export function DonationForm({ paymentMethods: pm, customerId, updatedFunction }: Props) {
+  const { t } = useTranslation();
+  const { spacing } = useAppTheme();
+  const theme = useTheme();
+  const user = useUser();
+  const currentUserChurch = useCurrentUserChurch();
+  const person = currentUserChurch?.person;
+  const [donationType, setDonationType] = useState<string>("");
+  const [selectedMethod, setSelectedMethod] = useState<string>("");
+  const [date] = useState(new Date());
+  const [fundDonations, setFundDonations] = useState<FundDonationInterface[]>([]);
+  const [total, setTotal] = React.useState<number>(0);
+  const [cardDetails, setCardDetails] = useState<CardFieldInput.Details>();
+  const [isChecked, setIsChecked] = useState(false);
+  const [transactionFee, setTransactionFee] = useState<number>(0);
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [selectedInterval, setSelectedInterval] = useState<string>("one_week");
+  const previewModal = useMenuToggle();
+  const intervalMenu = useMenuToggle();
+  const methodMenu = useMenuToggle();
+
+  // Determine church ID for funds query
+  const churchId = currentUserChurch?.church?.id || "";
+
+  // Use react-query for funds
+  const { data: apiFunds = [] } = useQuery<FundInterface[]>({
+    queryKey: [`/funds/churchId/${churchId}`, "GivingApi"],
+    enabled: !!churchId && !!user?.jwt,
+    placeholderData: [],
+    staleTime: 15 * 60 * 1000, // 15 minutes - funds change rarely
+    gcTime: 60 * 60 * 1000 // 1 hour
+  });
+  const funds = React.useMemo<FundInterface[]>(() => (apiFunds.length > 0 ? apiFunds : DEFAULT_MOBILE_FUNDS), [apiFunds]);
+
+  // Initialize fund donations when funds data is available
+  useEffect(() => {
+    if (funds.length > 0 && fundDonations.length === 0) {
+      setFundDonations([{ fundId: funds[0].id }]);
+    }
+  }, [funds, fundDonations.length]);
+
+  const intervalTypes = [
+    { label: t("donations.weekly"), value: "one_week" },
+    { label: t("donations.biWeekly"), value: "two_week" },
+    { label: t("donations.monthly"), value: "one_month" },
+    { label: t("donations.quarterly"), value: "three_month" },
+    { label: t("donations.annually"), value: "one_year" }
+  ];
+
+  const initDonation: StripeDonationInterface = {
+    id: pm?.[0]?.id || "",
+    type: pm?.[0]?.type || "card",
+    customerId: customerId || "",
+    person: {
+      id: person?.id || "",
+      email: user?.email || "",
+      name: (user?.firstName || "") + " " + (user?.lastName || "")
+    },
+    amount: 0,
+    billing_cycle_anchor: +new Date(),
+    interval: {
+      interval_count: 1,
+      interval: "month"
+    },
+    funds: []
+  };
+  const [donation, setDonation] = React.useState<StripeDonationInterface>(initDonation);
+
+  const handleSave = () => {
+    if (donation.amount && donation.amount < 0.5) {
+      Alert.alert(t("donations.minAmount"));
+    } else {
+      if (!currentUserChurch?.person?.id) {
+        donation.person = { id: "", email: email, name: firstName + " " + lastName };
+      }
+      previewModal.open();
+    }
+  };
+
+  const handleCancel = () => {
+    setDonationType("");
+  };
+
+  const handleFundDonationsChange = async (fd: FundDonationInterface[]) => {
+    setFundDonations(fd);
+    let totalAmount = 0;
+    const selectedFunds: any = [];
+    for (const fundDonation of fd) {
+      totalAmount += fundDonation.amount || 0;
+      const fund = funds.find((fund: FundInterface) => fund.id === fundDonation.fundId);
+      selectedFunds.push({ id: fundDonation.fundId, amount: fundDonation.amount || 0, name: fund?.name || "" });
+    }
+    const d = { ...donation };
+    d.amount = totalAmount;
+    d.funds = selectedFunds;
+    setDonation(d);
+
+    const fee = await getTransactionFee(totalAmount);
+    setTransactionFee(fee);
+    setTotal(calculateTotalWithFees(totalAmount, isChecked, fee));
+  };
+
+  const makeDonation = async () => {
+    const method = pm.find(pm => pm.id === selectedMethod);
+    if (!UserHelper.currentUserChurch?.person?.id) {
+      ApiHelper.post("/users/loadOrCreate", { userEmail: email, firstName, lastName }, "MembershipApi")
+        .catch(ex => {
+          Alert.alert("Failed", ex.toString());
+          return;
+        })
+        .then(async userData => {
+          const personData = { churchId, firstName, lastName, email };
+          const person = await ApiHelper.post("/people/loadOrCreate", personData, "MembershipApi");
+          saveCard(userData, person);
+        });
+    } else {
+      const payload: StripeDonationInterface = {
+        ...donation,
+        id: selectedMethod,
+        customerId: customerId,
+        type: method?.type,
+        billing_cycle_anchor: +new Date(date),
+        amount: parseFloat(total.toFixed(2)),
+        church: { subDomain: currentUserChurch?.church?.subDomain }
+      };
+      saveDonation(payload, "");
+    }
+  };
+
+  const saveCard = async (user: UserInterface, person: PersonInterface) => {
+    if (!person?.id || !person?.name?.display) {
+      Alert.alert("Error", "User information is incomplete. Please log in again.");
+      return;
+    }
+
+    const stripePaymentMethod = await createPaymentMethod({ paymentMethodType: "Card", ...cardDetails });
+
+    if (stripePaymentMethod.error) {
+      Alert.alert("Failed", stripePaymentMethod.error.message);
+      return;
+    } else {
+      const pm = { id: stripePaymentMethod.paymentMethod.id, personId: person.id, email: email, name: person.name.display, churchId, provider: "stripe" };
+      await ApiHelper.post("/paymentmethods/addcard", pm, "GivingApi").then(result => {
+        if (result?.raw?.message) {
+          Alert.alert("Failed", result.raw.message);
+        } else {
+          const d: { paymentMethod: StripePaymentMethod; customerId: string } = result;
+          donation.person = { name: firstName + " " + lastName, id: person.id!, email: email };
+          const payload: StripeDonationInterface = {
+            id: d.paymentMethod.id,
+            customerId: d.customerId,
+            type: d.paymentMethod?.type,
+            // amount: donation.amount,
+            amount: parseFloat(total.toFixed(2)),
+            churchId,
+            funds: donation.funds,
+            person: donation.person,
+            billing_cycle_anchor: +new Date(date),
+            interval: donation.interval,
+            church: { subDomain: currentUserChurch?.church?.subDomain }
+          };
+          saveDonation(payload, "");
+        }
+      });
+    }
+  };
+
+  const saveDonation = async (payload: StripeDonationInterface, _message: string) => {
+    let results;
+    if (donationType === "once") results = await ApiHelper.post("/donate/charge/", payload, "GivingApi");
+    if (donationType === "recurring") results = await ApiHelper.post("/donate/subscribe/", payload, "GivingApi");
+
+    if (results?.status === "succeeded" || results?.status === "pending" || results?.status === "active") {
+      previewModal.close();
+      setDonationType("");
+      setTotal(0);
+      setFundDonations([{ fundId: funds[0]?.id }]);
+      setDonation(initDonation);
+      setEmail("");
+      setFirstName("");
+      setLastName("");
+      setIsChecked(false);
+      Alert.alert(t("donations.thankYou"), _message, [{ text: "OK", onPress: () => updatedFunction() }]);
+    }
+    if (results?.raw?.message) {
+      previewModal.close();
+      Alert.alert(t("donations.failed"), results?.raw?.message);
+    }
+  };
+
+  const handleIntervalChange = (key: string, value: any) => {
+    const donationsCopy = { ...donation };
+    switch (key) {
+      case "number":
+        if (donationsCopy.interval) donationsCopy.interval.interval_count = value;
+        break;
+      case "type":
+        if (donationsCopy.interval) {
+          switch (value) {
+            case "one_week": donationsCopy.interval.interval_count = 1; donationsCopy.interval.interval = "week"; break;
+            case "two_week": donationsCopy.interval.interval_count = 2; donationsCopy.interval.interval = "week"; break;
+            case "one_month": donationsCopy.interval.interval_count = 1; donationsCopy.interval.interval = "month"; break;
+            case "three_month": donationsCopy.interval.interval_count = 3; donationsCopy.interval.interval = "month"; break;
+            case "one_year": donationsCopy.interval.interval_count = 1; donationsCopy.interval.interval = "year"; break;
+          }
+        }
+        break;
+    }
+    setDonation(donationsCopy);
+  };
+
+  const calculateTotalWithFees = (baseAmount: number, isChecked: boolean, fee: number = 0) => {
+    const feeAmount = isChecked ? fee : 0;
+    return baseAmount + feeAmount;
+  };
+
+  const getTransactionFee = async (amount: number) => {
+    if (amount > 0) {
+      const selectedPaymentMethod = pm.find(p => p.id === selectedMethod);
+      const requestData: any = { amount };
+
+      if (selectedPaymentMethod?.type === "paypal") {
+        requestData.provider = "paypal";
+      } else {
+        const dt = selectedPaymentMethod?.type === "card" ? "creditCard" : "ach";
+        requestData.type = dt;
+      }
+
+      try {
+        const response = await ApiHelper.post("/donate/fee?churchId=" + currentUserChurch?.church?.id, requestData, "GivingApi");
+        return response.calculatedFee;
+      } catch (error) {
+        // Fallback to credit card calculation
+        const fixedFee = 0.3;
+        const fixedPercent = 0.029;
+        return Math.round(((amount + fixedFee) / (1 - fixedPercent) - amount) * 100) / 100;
+      }
+    } else {
+      return 0;
+    }
+  };
+
+  const getMethodLabel = (method: StripePaymentMethod) => {
+    if (!method) return "";
+    return `${method.name} ${t("donations.endingIn")} ${method.last4}`;
+  };
+
+  return (
+    <Card style={{ marginBottom: spacing.md }}>
+      <Card.Title title={t("donations.makeaDonation")} titleStyle={{ fontSize: 20, fontWeight: "600" }} left={props => <IconButton {...props} icon="gift" size={24} iconColor={theme.colors.primary} style={{ margin: 0 }} />} />
+      <Card.Content>
+        <RadioButton.Group onValueChange={value => setDonationType(value)} value={donationType}>
+          <View style={{ flexDirection: "row", marginBottom: spacing.md }}>
+            <RadioButton.Item label={t("donations.oneTime")} value="once" />
+            <RadioButton.Item label={t("donations.recurring")} value="recurring" />
+          </View>
+        </RadioButton.Group>
+
+        {donationType && (
+          <>
+            {!currentUserChurch?.person?.id && (
+              <View style={{ marginBottom: spacing.md }}>
+                <TextInput mode="outlined" label={t("auth.email")} value={email} onChangeText={setEmail} style={{ marginBottom: spacing.sm }} />
+                <TextInput mode="outlined" label={t("auth.firstName")} value={firstName} onChangeText={setFirstName} style={{ marginBottom: spacing.sm }} />
+                <TextInput mode="outlined" label={t("auth.lastName")} value={lastName} onChangeText={setLastName} style={{ marginBottom: spacing.sm }} />
+              </View>
+            )}
+
+            {pm.length > 0 ? (
+              <View style={{ marginBottom: spacing.md }}>
+                <Menu
+                  visible={methodMenu.visible}
+                  onDismiss={methodMenu.close}
+                  anchor={
+                    <Button mode="outlined" onPress={methodMenu.open} style={{ marginBottom: spacing.sm }}>
+                      {selectedMethod ? getMethodLabel(pm.find(m => m.id === selectedMethod)!) : t("donations.selectPaymentMethod")}
+                    </Button>
+                  }>
+                  {pm.map(method => (
+                    <Menu.Item
+                      key={method.id}
+                      onPress={() => {
+                        setSelectedMethod(method.id);
+                        methodMenu.close();
+                      }}
+                      title={getMethodLabel(method)}
+                    />
+                  ))}
+                </Menu>
+              </View>
+            ) : (
+              <CardField postalCodeEnabled={false} placeholders={{ number: "4242 4242 4242 4242" }} cardStyle={{ backgroundColor: theme.colors.surface }} style={{ height: 50, marginBottom: spacing.md }} onCardChange={details => setCardDetails(details)} />
+            )}
+
+            {donationType === "recurring" && (
+              <View style={{ marginBottom: spacing.md }}>
+                <Menu
+                  visible={intervalMenu.visible}
+                  onDismiss={intervalMenu.close}
+                  anchor={
+                    <Button mode="outlined" onPress={intervalMenu.open} style={{ marginBottom: spacing.sm }}>
+                      {intervalTypes.find(i => i.value === selectedInterval)?.label || t("donations.selectInterval")}
+                    </Button>
+                  }>
+                  {intervalTypes.map(interval => (
+                    <Menu.Item
+                      key={interval.value}
+                      onPress={() => {
+                        setSelectedInterval(interval.value);
+                        handleIntervalChange("type", interval.value);
+                        intervalMenu.close();
+                      }}
+                      title={interval.label}
+                    />
+                  ))}
+                </Menu>
+              </View>
+            )}
+
+            <FundDonations funds={funds} fundDonations={fundDonations} updatedFunction={handleFundDonationsChange} />
+
+            <View style={{ marginTop: spacing.md }}>
+              <Checkbox.Item
+                label={t("donations.coverFees")}
+                status={isChecked ? "checked" : "unchecked"}
+                onPress={() => {
+                  setIsChecked(!isChecked);
+                  setTotal(calculateTotalWithFees(donation.amount || 0, !isChecked, transactionFee));
+                }}
+              />
+              {transactionFee > 0 && (
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: spacing.xs }}>
+                  {t("donations.transactionFee", { amount: CurrencyHelper.formatCurrency(transactionFee) })}
+                </Text>
+              )}
+            </View>
+
+            <View style={{ marginTop: spacing.md }}>
+              <Text variant="titleMedium">{t("donations.total", { amount: CurrencyHelper.formatCurrency(total) })}</Text>
+            </View>
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: spacing.lg }}>
+              <Button mode="outlined" onPress={handleCancel} style={{ flex: 1, marginRight: spacing.sm }}>
+                {t("common.cancel")}
+              </Button>
+              <Button mode="contained" onPress={handleSave} style={{ flex: 1, marginLeft: spacing.sm }}>
+                {t("common.continue")}
+              </Button>
+            </View>
+          </>
+        )}
+      </Card.Content>
+
+      <PreviewModal show={previewModal.visible} close={previewModal.close} donation={donation} paymentMethodName={getMethodLabel(pm.find(m => m.id === selectedMethod)!)} donationType={donationType} handleDonate={makeDonation} isChecked={isChecked} transactionFee={transactionFee} />
+    </Card>
+  );
+}

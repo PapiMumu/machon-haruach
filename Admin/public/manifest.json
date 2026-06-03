@@ -1,0 +1,9 @@
+{
+  "short_name": "Admin",
+  "name": "Machon HaRuach Admin",
+  "icons": [],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2F3465",
+  "background_color": "#ffffff"
+}

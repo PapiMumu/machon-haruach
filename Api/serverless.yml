@@ -1,0 +1,294 @@
+service: api
+
+frameworkVersion: "3"
+
+# Serverless 3.x schema lags AWS (e.g. nodejs22.x). Lambda supports Node 22 in us-east-2.
+configValidationMode: off
+
+custom:
+  env: ${opt:stage, 'dev'}
+  # Simple mapping to ensure lowercase - add more as needed
+  stageToLower:
+    dev: dev
+    demo: demo
+    staging: staging
+    Staging: staging
+    prod: prod
+    Prod: prod
+  envLower: ${self:custom.stageToLower.${self:custom.env}, self:custom.env}
+  defaultS3Bucket:
+    dev: gnw-content
+    demo: demo-churchapps-content
+    staging: machon-haruach-content
+    prod: machon-haruach-content
+  defaultContentRoot:
+    staging: https://machon-haruach-content.s3.us-east-2.amazonaws.com
+    prod: https://machon-haruach-content.s3.us-east-2.amazonaws.com
+  s3BucketName: ${ssm:/${self:custom.envLower}/s3Bucket, self:custom.defaultS3Bucket.${self:custom.envLower}, 'gnw-content'}
+  serverless-offline:
+    httpPort: 8084
+    websocketPort: 8087
+    lambdaPort: 8085
+  # Stage-specific VPC config for Lambda -> RDS connectivity.
+  # IMPORTANT: This is currently pinned for staging only.
+  # If you deploy prod in a different VPC, add a prod mapping before deploy.
+  lambdaVpcByStage:
+    staging:
+      securityGroupIds:
+        - sg-03616dbce9e52955e
+      subnetIds:
+        - subnet-03929e82415cb0d2a
+        - subnet-0c6c61526f71ab6d5
+        - subnet-0471a3ee1497743e9
+  # Lambdas are not placed in a VPC by default (typical for dev / public RDS).
+  # For self-hosted prod with private RDS, add per-function or provider vpc: { subnetIds, securityGroupIds }.
+  # Critical database connections loaded from Parameter Store at deploy time
+  # These provide faster cold starts by avoiding runtime Parameter Store calls
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, 'dev'}
+  region: us-east-2
+  memorySize: 1024
+  timeout: 30
+  environment:
+    STAGE: ${self:custom.env}
+    ENVIRONMENT: ${self:custom.env}
+    # App secrets and config loaded from SSM at deploy-time
+    JWT_SECRET: ${ssm:/${self:custom.envLower}/jwtSecret, ''}
+    ENCRYPTION_KEY: ${ssm:/${self:custom.envLower}/encryptionKey, ''}
+
+    # Database connections for all modules
+    MEMBERSHIP_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/membershipApi/connectionString, ''}
+    ATTENDANCE_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/attendanceApi/connectionString, ''}
+    CONTENT_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/contentApi/connectionString, ''}
+    GIVING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/givingApi/connectionString, ''}
+    MESSAGING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/messagingApi/connectionString, ''}
+    DOING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/doingApi/connectionString, ''}
+    REPORTING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/reportingApi/connectionString, ''}
+
+    # Third-party API keys (non-DB secrets)
+    HUBSPOT_KEY: ${ssm:/${self:custom.envLower}/hubspotKey, ''}
+    CADDY_HOST: ${ssm:/${self:custom.envLower}/caddyHost, ''}
+    CADDY_PORT: ${ssm:/${self:custom.envLower}/caddyPort, ''}
+    YOUTUBE_API_KEY: ${ssm:/${self:custom.envLower}/youTubeApiKey, ''}
+    PEXELS_KEY: ${ssm:/${self:custom.envLower}/pexelsKey, ''}
+    VIMEO_TOKEN: ${ssm:/${self:custom.envLower}/vimeoToken, ''}
+    API_BIBLE_KEY: ${ssm:/${self:custom.envLower}/apiBibleKey, ''}
+    YOUVERSION_API_KEY: ${ssm:/${self:custom.envLower}/youVersionApiKey, ''}
+    PRAISECHARTS_CONSUMER_KEY: ${ssm:/${self:custom.envLower}/praiseChartsConsumerKey, ''}
+    PRAISECHARTS_CONSUMER_SECRET: ${ssm:/${self:custom.envLower}/praiseChartsConsumerSecret, ''}
+    GOOGLE_RECAPTCHA_SECRET_KEY: ${ssm:/${self:custom.envLower}/recaptcha-secret-key, ''}
+    OPENROUTER_API_KEY: ${ssm:/${self:custom.envLower}/openRouterApiKey, ''}
+    OPENAI_API_KEY: ${ssm:/${self:custom.envLower}/openAiApiKey, ''}
+
+    # Feature flags
+    ENABLE_PAYNOW: ${ssm:/${self:custom.envLower}/enablePaynow, 'true'}
+    # Comma-separated appName values (login JSON body) that skip user-level subscription/trial on POST /users/login.
+    # Unset/blank in Lambda → code defaults to Machon HaRuach Admin. Use __none__ to enforce subscription for all clients.
+    MEMBERSHIP_LOGIN_SUBSCRIPTION_EXEMPT_APP_NAMES: ${ssm:/${self:custom.envLower}/membershipLoginSubscriptionExemptAppNames, 'Machon HaRuach Admin,Machon HaRuach'}
+
+    # Email (enable prod-like behavior via SSM)
+    MAIL_SYSTEM: ${ssm:/${self:custom.envLower}/mailSystem, ''}
+    SUPPORT_EMAIL: ${ssm:/${self:custom.envLower}/supportEmail, ''}
+    B1ADMIN_ROOT: ${ssm:/${self:custom.envLower}/b1AdminRoot, ''}
+    EMAIL_ON_REGISTRATION: ${ssm:/${self:custom.envLower}/emailOnRegistration, ''}
+    AWS_S3_BUCKET: ${self:custom.s3BucketName}
+    CONTENT_ROOT: ${ssm:/${self:custom.envLower}/contentRoot, self:custom.defaultContentRoot.${self:custom.envLower}, ''}
+    FILE_STORE: ${ssm:/${self:custom.envLower}/fileStore, 'S3'}
+    EMAIL_LOGO_URL: ${ssm:/${self:custom.envLower}/emailLogoUrl, ''}
+
+    # Sentry disabled for self-hosted: NODE_OPTIONS --import @sentry/... crashes Lambda init
+    # (module not in our layer) and API Gateway returns {"message":"Internal server error"} on every route.
+    # Re-enable after adding @sentry/aws-serverless to tools/layer-package.json and your own layer ARN.
+    SENTRY_DSN: ""
+
+    WEBSOCKET_API_ID:
+      Ref: WebsocketsApi
+  # Self-hosted: do not pin another account's role. Serverless creates the execution role
+  # here; statements below are merged for features this codebase uses.
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource:
+            Fn::Join:
+              - ""
+              - - "arn:aws:execute-api:"
+                - Ref: AWS::Region
+                - ":"
+                - Ref: AWS::AccountId
+                - ":"
+                - Ref: WebsocketsApi
+                - "/*/@connections/*"
+        - Effect: Allow
+          Action:
+            - polly:SynthesizeSpeech
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+            - ses:SendTemplatedEmail
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+          Resource:
+            - arn:aws:s3:::${self:custom.s3BucketName}/*
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::${self:custom.s3BucketName}
+
+package:
+  individually: false
+  patterns:
+    - "config/**"
+    - "dist/**"
+    - "lambda.js"
+    - "package.json"
+    - "!node_modules/**"
+    - "!src/**"
+    - "!tools/**"
+    - "!package-lock.json"
+    - "!tsconfig.json"
+    - "!.env"
+    - "!.git/**"
+    - "!.gitignore"
+    - "!README.md"
+    - "!serverless.yml"
+    - "!layer/**"
+
+layers:
+  dependencies:
+    path: layer
+    name: ${self:service}-dependencies-${self:custom.env}
+    description: Dependencies layer for ${self:service}
+    compatibleRuntimes:
+      - nodejs22.x
+    retain: false
+    # Use a pre-zipped artifact to avoid Windows packaging hangs/OOM
+    package:
+      artifact: layer/dependencies.zip
+
+functions:
+  web:
+    handler: lambda.web
+    vpc: ${self:custom.lambdaVpcByStage.${self:custom.envLower}, null}
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    memorySize: 1024
+    timeout: 30
+    events:
+      - http:
+          path: /
+          method: ANY
+          cors: true
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+      - http:
+          path: /api/{proxy+}
+          method: ANY
+          cors: true
+
+  socket:
+    handler: lambda.socket
+    vpc: ${self:custom.lambdaVpcByStage.${self:custom.envLower}, null}
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    memorySize: 1024
+    timeout: 30
+    environment:
+      # Database connections for WebSocket functionality
+      MEMBERSHIP_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/membershipApi/connectionString, ''}
+      MESSAGING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/messagingApi/connectionString, ''}
+    events:
+      - websocket:
+          route: $connect
+      - websocket:
+          route: $disconnect
+      - websocket:
+          route: $default
+
+  timer15Min:
+    handler: lambda.timer15Min
+    vpc: ${self:custom.lambdaVpcByStage.${self:custom.envLower}, null}
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    memorySize: 256
+    timeout: 300
+    environment:
+      # Database connections for messaging notifications
+      MEMBERSHIP_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/membershipApi/connectionString, ''}
+      MESSAGING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/messagingApi/connectionString, ''}
+    events:
+      - schedule:
+          rate: rate(30 minutes)
+          enabled: true
+
+  timerMidnight:
+    handler: lambda.timerMidnight
+    vpc: ${self:custom.lambdaVpcByStage.${self:custom.envLower}, null}
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    memorySize: 256
+    timeout: 300
+    environment:
+      # Database connections for daily digest notifications
+      MEMBERSHIP_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/membershipApi/connectionString, ''}
+      MESSAGING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/messagingApi/connectionString, ''}
+    events:
+      - schedule:
+          rate: cron(0 5 * * ? *)
+          enabled: true
+
+  timerScheduledTasks:
+    handler: lambda.timerScheduledTasks
+    vpc: ${self:custom.lambdaVpcByStage.${self:custom.envLower}, null}
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    memorySize: 256
+    timeout: 300
+    environment:
+      # Database connections for scheduled tasks
+      MEMBERSHIP_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/membershipApi/connectionString, ''}
+      MESSAGING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/messagingApi/connectionString, ''}
+      DOING_CONNECTION_STRING: ${ssm:/${self:custom.envLower}/doingApi/connectionString, ''}
+    events:
+      - schedule:
+          rate: cron(0 5 * * ? *)
+          enabled: true
+
+plugins:
+  - serverless-offline
+
+resources:
+  Resources:
+    GatewayResponseDefault4XX:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: "ApiGatewayRestApi"
+
+    GatewayResponseDefault5XX:
+      Type: "AWS::ApiGateway::GatewayResponse"
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_5XX
+        RestApiId:
+          Ref: "ApiGatewayRestApi"

@@ -1,0 +1,277 @@
+import React, { useEffect, useState } from "react";
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, ActivityIndicator } from "react-native";
+import { OptimizedImage } from "../OptimizedImage";
+import { ApiHelper } from "../../../src/helpers";
+import { DimensionHelper } from "@/helpers/DimensionHelper";
+import Icons from "@expo/vector-icons/MaterialIcons";
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { useTranslation } from "react-i18next";
+import { useThemeColors } from "../../../src/theme";
+
+interface SongDetail {
+  id?: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  language?: string;
+  bpm?: number;
+  keySignature?: string;
+  tones?: string;
+  meter?: string;
+  seconds?: number;
+  thumbnail?: string;
+  praiseChartsId?: string;
+}
+
+interface Arrangement {
+  id?: string;
+  songDetailId?: string;
+  lyrics?: string;
+}
+
+interface LinkData {
+  id?: string;
+  text?: string;
+  url: string;
+  service?: string;
+}
+
+interface Props {
+  arrangementKeyId?: string;
+  onClose: () => void;
+}
+
+export const SongDialog = ({ arrangementKeyId, onClose }: Props) => {
+  const { t } = useTranslation();
+  const colors = useThemeColors();
+  const [loading, setLoading] = useState(false);
+  const [songDetail, setSongDetail] = useState<SongDetail | null>(null);
+  const [arrangement, setArrangement] = useState<Arrangement | null>(null);
+  const [links, setLinks] = useState<LinkData[]>([]);
+  const [externalLinks, setExternalLinks] = useState<LinkData[]>([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const ak = await ApiHelper.get(`/arrangementKeys/${arrangementKeyId}`, "ContentApi");
+        const arr = await ApiHelper.get(`/arrangements/${ak.arrangementId}`, "ContentApi");
+        setArrangement(arr);
+        const sd = await ApiHelper.get(`/songDetails/${arr.songDetailId}`, "ContentApi");
+        setSongDetail(sd);
+        const linkData = await ApiHelper.get(`/links?category=arrangementKey_${ak.id}`, "ContentApi");
+        setLinks(linkData);
+        if (sd?.id) {
+          const extLinks = await ApiHelper.get(`/songDetailLinks/songDetail/${sd.id}`, "ContentApi");
+          setExternalLinks(extLinks);
+        } else {
+          setExternalLinks([]);
+        }
+      } catch {
+        setSongDetail(null);
+        setExternalLinks([]);
+      }
+      setLoading(false);
+    };
+    if (arrangementKeyId) loadData();
+  }, [arrangementKeyId]);
+
+  if (!arrangementKeyId) return null;
+
+  return (
+    <Modal visible={!!arrangementKeyId} animationType="slide" transparent={true} onRequestClose={onClose}>
+      <View style={[styles.overlay, { backgroundColor: colors.modalOverlay }]}>
+        <View style={[styles.dialog, { backgroundColor: colors.surface, shadowColor: colors.shadowBlack }]}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Icons name="close" size={28} color={colors.text} />
+          </TouchableOpacity>
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} />
+          ) : songDetail ? (
+            <ScrollView contentContainerStyle={styles.content}>
+              <Text style={[styles.title, { color: colors.primary }]}>{songDetail.title}</Text>
+              {songDetail.thumbnail ? <OptimizedImage source={{ uri: songDetail.thumbnail }} style={styles.thumbnail} contentFit="contain" priority="normal" /> : null}
+              <View style={styles.detailsTable}>
+                {songDetail.artist && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.artist")}: </Text>
+                    {songDetail.artist}
+                  </Text>
+                )}
+                {songDetail.album && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.album")}: </Text>
+                    {songDetail.album}
+                  </Text>
+                )}
+                {songDetail.language && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.language")}: </Text>
+                    {songDetail.language}
+                  </Text>
+                )}
+                {songDetail.bpm && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.bpm")}: </Text>
+                    {songDetail.bpm}
+                  </Text>
+                )}
+                {songDetail.keySignature && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.key")}: </Text>
+                    {songDetail.keySignature}
+                  </Text>
+                )}
+                {songDetail.tones && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.keys")}: </Text>
+                    {songDetail.tones}
+                  </Text>
+                )}
+                {songDetail.meter && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.meter")}: </Text>
+                    {songDetail.meter}
+                  </Text>
+                )}
+                {songDetail.seconds && (
+                  <Text style={[styles.detailRow, { color: colors.text }]}>
+                    <Text style={[styles.detailLabel, { color: colors.primary }]}>{t("songs.length")}: </Text>
+                    {Math.floor(songDetail.seconds / 60)}:{(songDetail.seconds % 60).toString().padStart(2, "0")}
+                  </Text>
+                )}
+              </View>
+              {externalLinks.length > 0 && (
+                <View style={styles.linksSection}>
+                  <Text style={[styles.linksTitle, { color: colors.primary }]}>{t("songs.externalLinks")}</Text>
+                  {externalLinks.map((l, i) => (
+                    <TouchableOpacity key={l.id || i} onPress={() => Linking.openURL(l.url)} style={styles.linkRow}>
+                      {getServiceIcon(l.service)}
+                      <Text style={[styles.link, { color: colors.primary }]}>{l.service || l.text || l.url}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {songDetail?.praiseChartsId && (
+                    <TouchableOpacity key="praisecharts" onPress={() => Linking.openURL(`https://www.praisecharts.com/songs/details/${songDetail.praiseChartsId}?XID=churchapps`)} style={styles.linkRow}>
+                      {getServiceIcon("PraiseCharts")}
+                      <Text style={[styles.link, { color: colors.primary }]}>{t("songs.praiseCharts")}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+              {arrangement?.lyrics ? (
+                <View style={styles.lyricsSection}>
+                  <Text style={[styles.lyricsTitle, { color: colors.primary }]}>{t("songs.lyrics")}</Text>
+                  <Text style={[styles.lyrics, { color: colors.text }]}>{arrangement.lyrics}</Text>
+                </View>
+              ) : null}
+              {links.length > 0 && (
+                <View style={styles.linksSection}>
+                  <Text style={[styles.linksTitle, { color: colors.primary }]}>{t("songs.links")}</Text>
+                  {links.map((l, i) => (
+                    <TouchableOpacity key={l.id || i} onPress={() => Linking.openURL(l.url)}>
+                      <Text style={[styles.link, { color: colors.primary }]}>{l.text || l.service || l.url}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          ) : (
+            <Text style={[styles.errorText, { color: colors.error }]}>{t("songs.songDetailsNotFound")}</Text>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  dialog: {
+    width: "90%",
+    maxHeight: "85%",
+    borderRadius: 16,
+    padding: DimensionHelper.wp(4),
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  closeButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 2
+  },
+  content: {
+    paddingTop: 30,
+    paddingBottom: 10
+  },
+  title: {
+    fontSize: DimensionHelper.wp(5),
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 10
+  },
+  thumbnail: {
+    width: "100%",
+    height: DimensionHelper.wp(40),
+    marginBottom: 10,
+    borderRadius: 8,
+    backgroundColor: "#eee"
+  },
+  detailsTable: { marginBottom: 10 },
+  detailRow: {
+    fontSize: DimensionHelper.wp(3.7),
+    marginBottom: 2
+  },
+  detailLabel: { fontWeight: "bold" },
+  lyricsSection: {
+    marginTop: 10,
+    marginBottom: 10
+  },
+  lyricsTitle: {
+    fontWeight: "bold",
+    fontSize: DimensionHelper.wp(4),
+    marginBottom: 4
+  },
+  lyrics: { fontSize: DimensionHelper.wp(3.7) },
+  linksSection: { marginTop: 10 },
+  linksTitle: {
+    fontWeight: "bold",
+    fontSize: DimensionHelper.wp(4),
+    marginBottom: 4
+  },
+  link: {
+    fontSize: DimensionHelper.wp(3.7),
+    marginBottom: 2,
+    textDecorationLine: "underline"
+  },
+  errorText: {
+    textAlign: "center",
+    marginTop: 40
+  },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4
+  }
+});
+
+function getServiceIcon(service: string) {
+  switch ((service || "").toLowerCase()) {
+    case "youtube": return <MaterialCommunityIcons name="youtube" size={24} color="#FF0000" style={{ marginRight: 8 }} />;
+    case "ccli": return <MaterialCommunityIcons name="music-circle" size={24} color="#222" style={{ marginRight: 8 }} />;
+    case "praisecharts": return <MaterialCommunityIcons name="music-box-multiple" size={24} color="#2e7d32" style={{ marginRight: 8 }} />;
+    case "spotify": return <MaterialCommunityIcons name="spotify" size={24} color="#1DB954" style={{ marginRight: 8 }} />;
+    case "apple":
+    case "apple music": return <MaterialCommunityIcons name="apple" size={24} color="#000" style={{ marginRight: 8 }} />;
+    case "genius": return <MaterialCommunityIcons name="lightbulb-on-outline" size={24} color="#f5e342" style={{ marginRight: 8 }} />;
+    case "hymnary": return <MaterialCommunityIcons name="book-music" size={24} color="#1976d2" style={{ marginRight: 8 }} />;
+    case "musicbrainz": return <MaterialCommunityIcons name="brain" size={24} color="#ff8800" style={{ marginRight: 8 }} />;
+    default: return null;
+  }
+}

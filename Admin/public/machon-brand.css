@@ -1,0 +1,1561 @@
+/* Goodnews World / RockNextGen typography — Inter, global Admin */
+:root {
+  --font-family-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-size-xsmall: 12px;
+  --font-size-small: 14px;
+  --font-size-regular: 16px;
+  --font-size-h1: 44px;
+  --font-size-h2: 36px;
+  --font-size-h3: 28px;
+  --font-size-h4: 22px;
+  --font-size-h5: 18px;
+  --font-size-h6: 16px;
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-normal: 1.5;
+  --line-height-tight: 1.1;
+}
+
+html {
+  font-size: var(--font-size-small);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body,
+#root {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-regular);
+  line-height: var(--line-height-normal);
+}
+
+input,
+button,
+select,
+textarea,
+.MuiTypography-root {
+  font-family: var(--font-family-sans);
+}
+
+h1,
+.h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+h2,
+.h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+h3,
+.h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+h4,
+.h4 {
+  font-size: var(--font-size-h4);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+h5,
+.h5 {
+  font-size: var(--font-size-h5);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+h6,
+.h6 {
+  font-size: var(--font-size-h6);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+/* Spirit Embassy / Goodnews spirit blue for login surfaces only */
+.splash-login-page,
+.split-login-page {
+  --c1: #2f3465 !important;
+  --c1d1: #252a52 !important;
+  --c1d2: #1c203f !important;
+  --c1d3: #1c2040 !important;
+  --c1l2: #4b5288 !important;
+}
+
+/* Standalone app bar logo (separated from menu button) */
+#appbar-logo {
+  width: auto !important;
+  max-width: min(320px, 42vw) !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  object-fit: contain !important;
+  object-position: left center !important;
+  margin-right: 12px;
+  flex-shrink: 0;
+  display: block !important;
+}
+
+/* Hide logo inside the menu button now that it's separated */
+#primaryNavButton img {
+  display: none !important;
+}
+
+/* Keep app bar fixed while scrolling */
+#site-app-bar {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+/* Hide help / support question-mark control in the app bar */
+#site-toolbar [data-testid="support-help-button"],
+#site-app-bar [data-testid="support-help-button"],
+#site-app-bar button[aria-label="Open support help"] {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Ensure page content always starts below the fixed app bar */
+#app-bar-spacer,
+#appBarSpacer {
+  height: 76px !important;
+  min-height: 76px !important;
+}
+
+:root {
+  --admin-sidebar-width: 206px;
+}
+
+/* Fixed left vertical app menu */
+#app-side-menu {
+  position: fixed;
+  top: 76px;
+  left: 10px;
+  bottom: 12px;
+  width: var(--admin-sidebar-width);
+  overflow-y: auto;
+  padding: 10px 8px;
+  border-right: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.08);
+  z-index: 1100;
+}
+
+#app-side-menu .side-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#app-side-menu .side-menu-item .MuiIcon-root {
+  font-size: 18px !important;
+  opacity: 0.95;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24;
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#app-side-menu .side-menu-item:hover .MuiIcon-root {
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+#app-side-menu .side-menu-item.active {
+  font-weight: 600;
+  transform: translateX(2px);
+}
+
+/* Fix full-bleed PageHeader clipping with fixed left sidebar */
+#page-header {
+  left: auto !important;
+  right: auto !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  background: transparent !important;
+  color: inherit !important;
+  border-bottom: 0 !important;
+  overflow: visible !important;
+}
+
+#page-header::before,
+#page-header::after {
+  display: none !important;
+  content: none !important;
+}
+
+#page-header .MuiContainer-root {
+  padding-top: 14px !important;
+  padding-bottom: 12px !important;
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+}
+
+#page-header-title {
+  color: inherit !important;
+  font-weight: 600 !important;
+  margin-bottom: 0 !important;
+  font-size: clamp(1.25rem, 1.2rem + 0.4vw, 1.6rem) !important;
+}
+
+/* Hide page titles on inner pages (use app-bar pills instead). Keep Home (/) visible for the Welcome header. */
+#app-main-content[data-path]:not([data-path="/"]) #page-header-title {
+  display: none !important;
+}
+
+#page-header-subtitle,
+#page-header-actions,
+#page-header-statistics {
+  display: none !important;
+}
+
+/* Primary menu button hidden (replaced by fixed left navigation) */
+#primaryNavButton {
+  display: none !important;
+}
+
+/* User menu: modern avatar and no dropdown arrow */
+#user-menu-button .MuiButton-endIcon {
+  display: none !important;
+}
+
+#user-menu-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+
+#user-menu-button {
+  min-width: 0 !important;
+  border-radius: 999px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transition: transform 0.2s ease;
+}
+
+#user-menu-button:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(-1px);
+}
+
+#user-menu-button:focus,
+#user-menu-button:focus-visible,
+#user-menu-button:active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#user-menu-button .MuiBadge-root,
+#user-menu-button .MuiBadge-badge {
+  background: transparent !important;
+}
+
+#user-menu-button .MuiTouchRipple-root {
+  display: none !important;
+}
+
+/* Modern user dropdown panel (person icon menu) */
+#user-menu-dropdown .MuiPaper-root,
+#user-menu-dropdown.MuiMenu-root .MuiPaper-root {
+  border-radius: 14px !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.24), 0 2px 10px rgba(15, 23, 42, 0.12) !important;
+  overflow: hidden;
+}
+
+#user-menu-dropdown .MuiBox-root {
+  padding: 8px;
+}
+
+#user-menu-dropdown .MuiBox-root a,
+#user-menu-dropdown .MuiBox-root button {
+  border-radius: 10px !important;
+  min-height: 38px;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+#user-menu-dropdown .MuiBox-root a:hover,
+#user-menu-dropdown .MuiBox-root button:hover {
+  transform: translateX(1px);
+}
+
+#user-menu-dropdown .MuiBadge-badge {
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+/* Center secondary page options in app bar with modern tab styling */
+#secondaryMenu {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+}
+
+#secondaryMenu a {
+  margin: 0 !important;
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-decoration: none !important;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+#secondaryMenu a:hover {
+  transform: translateY(-1px);
+}
+
+#secondaryMenu .MuiChip-root {
+  height: auto !important;
+  border-radius: 999px !important;
+  padding: 0 !important;
+}
+
+#secondaryMenu .MuiChip-label {
+  padding: 8px 14px !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+}
+
+/* App bar should follow the device color scheme */
+@media (prefers-color-scheme: light) {
+  #site-header {
+    --c1: #ffffff !important;
+    --c1d1: #f7f8fa !important;
+    --c1d2: #eef1f5 !important;
+    --c1l2: #ffffff !important;
+    color: #1f2937 !important;
+    background-color: var(--c1) !important;
+    border-bottom: 1px solid rgba(31, 41, 55, 0.12);
+  }
+
+  #site-toolbar {
+    background-color: var(--c1) !important;
+    color: #1f2937 !important;
+  }
+
+  #secondaryMenu {
+    background: rgba(17, 24, 39, 0.06);
+    border: 1px solid rgba(17, 24, 39, 0.1);
+  }
+
+  #secondaryMenu a {
+    color: #334155 !important;
+  }
+
+  #secondaryMenu a:hover {
+    background: rgba(17, 24, 39, 0.08);
+    color: #0f172a !important;
+  }
+
+  #secondaryMenu .MuiChip-root {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+  }
+
+  #app-side-menu {
+    background: #f8fafc;
+    color: #1f2937;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-right: 1px solid rgba(148, 163, 184, 0.25);
+  }
+
+  #app-side-menu .side-menu-item {
+    color: #1f2937;
+  }
+
+  #app-side-menu .side-menu-item .MuiIcon-root {
+    background: rgba(31, 41, 55, 0.08);
+    color: #1f2937;
+  }
+
+  #app-side-menu .side-menu-item:hover {
+    background: rgba(31, 41, 55, 0.08);
+    border-color: rgba(31, 41, 55, 0.14);
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+  }
+
+  #app-side-menu .side-menu-item.active {
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.18), rgba(31, 41, 55, 0.1));
+    border-color: rgba(31, 41, 55, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 4px 12px rgba(15, 23, 42, 0.12);
+  }
+
+  #app-side-menu .side-menu-item.active .MuiIcon-root {
+    background: rgba(31, 41, 55, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(31, 41, 55, 0.2);
+  }
+
+  #site-header .MuiIcon-root,
+  #site-header .MuiButton-root,
+  #site-header a,
+  #site-header h2 {
+    color: #1f2937 !important;
+  }
+
+  #user-menu-avatar {
+    border-color: rgba(31, 41, 55, 0.28) !important;
+  }
+
+  #user-menu-button {
+    background: rgba(17, 24, 39, 0.05) !important;
+    border-color: rgba(17, 24, 39, 0.14) !important;
+  }
+
+  #user-menu-button:hover {
+    background: rgba(17, 24, 39, 0.1) !important;
+    border-color: rgba(17, 24, 39, 0.22) !important;
+  }
+
+  /* Person icon tone in light mode: dark grey */
+  #user-menu-avatar .MuiSvgIcon-root {
+    color: #374151 !important;
+  }
+  #user-menu-avatar img {
+    filter: grayscale(1) brightness(0.45) contrast(1.05);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #site-header {
+    --c1: #161616 !important;
+    --c1d1: #121212 !important;
+    --c1d2: #0d0d0d !important;
+    --c1l2: #222222 !important;
+    color: #f9fafb !important;
+    background-color: var(--c1) !important;
+    border-bottom: 1px solid rgba(249, 250, 251, 0.14);
+  }
+
+  #site-toolbar {
+    background-color: var(--c1) !important;
+    color: #f9fafb !important;
+  }
+
+  #secondaryMenu {
+    background: rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+  }
+
+  #secondaryMenu a {
+    color: #cbd5e1 !important;
+  }
+
+  #secondaryMenu a:hover {
+    background: rgba(203, 213, 225, 0.12);
+    color: #f8fafc !important;
+  }
+
+  #secondaryMenu .MuiChip-root {
+    background: rgba(248, 250, 252, 0.22) !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(248, 250, 252, 0.35);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+  }
+
+  #app-side-menu {
+    background: #121212;
+    color: #e5e7eb;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-right-color: rgba(148, 163, 184, 0.2);
+  }
+
+  #app-side-menu .side-menu-item {
+    color: #e5e7eb;
+  }
+
+  #app-side-menu .side-menu-item .MuiIcon-root {
+    background: rgba(229, 231, 235, 0.12);
+    color: #e5e7eb;
+  }
+
+  #app-side-menu .side-menu-item:hover {
+    background: rgba(229, 231, 235, 0.12);
+    border-color: rgba(229, 231, 235, 0.2);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+  }
+
+  #app-side-menu .side-menu-item.active {
+    background: linear-gradient(135deg, rgba(229, 231, 235, 0.24), rgba(229, 231, 235, 0.14));
+    border-color: rgba(229, 231, 235, 0.3);
+    box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.2), 0 4px 12px rgba(0, 0, 0, 0.28);
+  }
+
+  #app-side-menu .side-menu-item.active .MuiIcon-root {
+    background: rgba(229, 231, 235, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.24);
+  }
+
+  #site-header .MuiIcon-root,
+  #site-header .MuiButton-root,
+  #site-header a,
+  #site-header h2 {
+    color: #f9fafb !important;
+  }
+
+  #user-menu-avatar {
+    border-color: rgba(249, 250, 251, 0.55) !important;
+  }
+
+  #user-menu-button {
+    background: rgba(249, 250, 251, 0.08) !important;
+    border-color: rgba(249, 250, 251, 0.2) !important;
+  }
+
+  #user-menu-button:hover {
+    background: rgba(249, 250, 251, 0.16) !important;
+    border-color: rgba(249, 250, 251, 0.3) !important;
+  }
+
+  /* Person icon tone in dark mode: light grey */
+  #user-menu-avatar .MuiSvgIcon-root {
+    color: #d1d5db !important;
+  }
+  #user-menu-avatar img {
+    filter: grayscale(1) brightness(1.35) contrast(0.9);
+  }
+}
+
+@media (max-width: 900px) {
+  #secondaryMenu {
+    position: static;
+    transform: none;
+    margin: 0 auto;
+    max-width: calc(100vw - 180px);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+/* ==========================================================
+   Global page modernization (authenticated content area)
+   ========================================================== */
+#app-main-content {
+  --surface-radius: 14px;
+  --surface-shadow: 0 10px 28px rgba(15, 23, 42, 0.1), 0 2px 8px rgba(15, 23, 42, 0.06);
+  --surface-border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+#app-main-content h1,
+#app-main-content h2,
+#app-main-content h3,
+#app-main-content h4,
+#app-main-content .MuiTypography-h4,
+#app-main-content .MuiTypography-h5,
+#app-main-content .MuiTypography-h6 {
+  letter-spacing: -0.01em;
+}
+
+#app-main-content h1,
+#app-main-content .MuiTypography-h4 {
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+#app-main-content h2,
+#app-main-content .MuiTypography-h5 {
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+#app-main-content h3,
+#app-main-content .MuiTypography-h6 {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+#app-main-content .MuiTypography-body1 {
+  line-height: 1.55;
+}
+
+#app-main-content .MuiTypography-body2 {
+  line-height: 1.5;
+}
+
+#app-main-content .MuiPaper-root,
+#app-main-content .MuiCard-root,
+#app-main-content .MuiAccordion-root,
+#app-main-content .MuiTableContainer-root {
+  border-radius: var(--surface-radius) !important;
+  border: var(--surface-border) !important;
+  box-shadow: var(--surface-shadow) !important;
+  overflow: hidden;
+}
+
+#app-main-content .MuiCardHeader-root,
+#app-main-content .MuiAccordionSummary-root {
+  min-height: 54px !important;
+}
+
+#app-main-content .MuiCardContent-root,
+#app-main-content .MuiAccordionDetails-root {
+  padding: 18px 18px !important;
+}
+
+#app-main-content .MuiContainer-root {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+#app-main-content .MuiGrid-container {
+  margin-top: 0 !important;
+}
+
+#app-main-content .MuiGrid-item {
+  min-width: 0;
+}
+
+#app-main-content .MuiButton-root {
+  border-radius: 10px !important;
+  text-transform: none !important;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  min-height: 38px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+#app-main-content .MuiButton-root .MuiSvgIcon-root {
+  font-size: 18px;
+}
+
+#app-main-content .MuiButton-contained {
+  /* Neutralize spirit-blue button feel: use subtle gray shadows */
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+}
+
+#app-main-content .MuiButton-contained:hover {
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.22);
+  transform: translateY(-1px);
+}
+
+#app-main-content .MuiButton-outlined {
+  border-width: 1px !important;
+}
+
+/* Default contained buttons: light gray background, dark text */
+#app-main-content .MuiButton-containedPrimary,
+#app-main-content .MuiButton-contained.MuiButton-containedPrimary {
+  background: #e5e7eb !important;
+  color: #0f172a !important;
+}
+
+#app-main-content .MuiButton-containedPrimary:hover,
+#app-main-content .MuiButton-contained.MuiButton-containedPrimary:hover {
+  background: #d1d5db !important;
+}
+
+/* Cancel (outlined/text) should match normal font color */
+#app-main-content .MuiButton-outlined,
+#app-main-content .MuiButton-text {
+  color: inherit !important;
+}
+
+#app-main-content .MuiChip-root {
+  border-radius: 999px !important;
+  font-weight: 600;
+}
+
+#app-main-content .MuiOutlinedInput-root,
+#app-main-content .MuiInputBase-root {
+  border-radius: 10px !important;
+}
+
+#app-main-content .MuiOutlinedInput-root input,
+#app-main-content .MuiInputBase-root input,
+#app-main-content .MuiInputBase-root textarea {
+  font-size: 0.95rem;
+}
+
+#app-main-content .MuiFormControl-root {
+  margin-top: 10px;
+  margin-bottom: 8px;
+}
+
+#app-main-content .MuiOutlinedInput-root.Mui-focused {
+  box-shadow: 0 0 0 4px rgba(47, 52, 101, 0.14);
+}
+
+#app-main-content .MuiTableHead-root .MuiTableCell-root {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  opacity: 0.88;
+}
+
+#app-main-content .MuiTableRow-root:hover .MuiTableCell-root {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+#app-main-content .MuiTableBody-root .MuiTableCell-root {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+#app-main-content .MuiIcon-root,
+#app-main-content .MuiSvgIcon-root {
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+#app-main-content .MuiIconButton-root:hover .MuiSvgIcon-root,
+#app-main-content .MuiButton-root:hover .MuiSvgIcon-root {
+  transform: scale(1.04);
+}
+
+#app-main-content .MuiTabs-root {
+  min-height: 46px;
+}
+
+#app-main-content .MuiTab-root {
+  text-transform: none;
+  min-height: 46px;
+  font-weight: 600;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+#app-main-content .MuiTab-root.Mui-selected {
+  color: #f3f4f6;
+}
+
+#app-main-content .MuiTab-root.Mui-selected .MuiSvgIcon-root,
+#app-main-content .MuiTab-root.Mui-selected .MuiIcon-root {
+  color: #f3f4f6;
+}
+
+/* Refined controls, overlays, and utility surfaces */
+#app-main-content .MuiMenu-paper,
+#app-main-content .MuiPopover-paper,
+#app-main-content .MuiDialog-paper,
+#app-main-content .MuiDrawer-paper {
+  border-radius: 14px !important;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2), 0 2px 10px rgba(15, 23, 42, 0.12) !important;
+}
+
+#app-main-content .MuiDialogTitle-root {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+#app-main-content .MuiListItemButton-root {
+  border-radius: 10px;
+}
+
+#app-main-content .MuiListItemButton-root.Mui-selected {
+  font-weight: 600;
+}
+
+#app-main-content .MuiPaginationItem-root {
+  border-radius: 10px;
+}
+
+#app-main-content .MuiSelect-select,
+#app-main-content .MuiAutocomplete-inputRoot {
+  border-radius: 10px !important;
+}
+
+#app-main-content .MuiFormHelperText-root {
+  opacity: 0.85;
+}
+
+#app-main-content .MuiLinearProgress-root,
+#app-main-content .MuiSkeleton-root {
+  border-radius: 999px;
+}
+
+#app-main-content .MuiAlert-root {
+  border-radius: 12px;
+}
+
+#app-main-content .MuiBreadcrumbs-root {
+  font-size: 0.92rem;
+  opacity: 0.92;
+}
+
+#app-main-content .MuiCardActions-root,
+#app-main-content .MuiDialogActions-root {
+  padding: 12px 16px 14px;
+}
+
+#app-main-content .MuiDivider-root {
+  opacity: 0.65;
+}
+
+#app-main-content .MuiTooltip-tooltip {
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
+#app-main-content .MuiIconButton-root {
+  border-radius: 10px;
+}
+
+@media (prefers-color-scheme: light) {
+  #app-main-content {
+    color: #111827;
+  }
+
+  #app-main-content .MuiPaper-root,
+  #app-main-content .MuiCard-root,
+  #app-main-content .MuiAccordion-root,
+  #app-main-content .MuiTableContainer-root {
+    background: #ffffff !important;
+    border-color: rgba(148, 163, 184, 0.24) !important;
+  }
+
+  #app-main-content .MuiCardHeader-root,
+  #app-main-content .MuiAccordionSummary-root {
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(248, 250, 252, 0.45));
+  }
+
+  #app-main-content .MuiOutlinedInput-root fieldset {
+    border-color: rgba(100, 116, 139, 0.35) !important;
+  }
+
+  #app-main-content .MuiOutlinedInput-root:hover fieldset {
+    border-color: rgba(71, 85, 105, 0.45) !important;
+  }
+
+  #app-main-content .MuiMenu-paper,
+  #app-main-content .MuiPopover-paper,
+  #app-main-content .MuiDialog-paper,
+  #app-main-content .MuiDrawer-paper {
+    background: #ffffff !important;
+    border-color: rgba(148, 163, 184, 0.24);
+  }
+
+  #app-main-content .MuiTabs-indicator {
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #d1d5db, #f3f4f6);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #app-main-content {
+    color: #e5e7eb;
+    --surface-shadow: 0 10px 28px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.24);
+    --surface-border: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  #app-main-content .MuiPaper-root,
+  #app-main-content .MuiCard-root,
+  #app-main-content .MuiAccordion-root,
+  #app-main-content .MuiTableContainer-root {
+    background: #171717 !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
+  }
+
+  #app-main-content .MuiCardHeader-root,
+  #app-main-content .MuiAccordionSummary-root {
+    background: linear-gradient(180deg, rgba(42, 42, 42, 0.75), rgba(42, 42, 42, 0.38));
+  }
+
+  #app-main-content .MuiOutlinedInput-root fieldset {
+    border-color: rgba(148, 163, 184, 0.34) !important;
+  }
+
+  #app-main-content .MuiOutlinedInput-root:hover fieldset {
+    border-color: rgba(203, 213, 225, 0.44) !important;
+  }
+
+  #app-main-content .MuiMenu-paper,
+  #app-main-content .MuiPopover-paper,
+  #app-main-content .MuiDialog-paper,
+  #app-main-content .MuiDrawer-paper {
+    background: #121212 !important;
+    border-color: rgba(148, 163, 184, 0.22);
+  }
+
+  #app-main-content .MuiTabs-indicator {
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #d1d5db, #f3f4f6);
+  }
+
+  #app-main-content .MuiTab-root.Mui-selected {
+    color: #cbd5e1;
+  }
+}
+
+/* ----------------------------------------------------------
+   Route-specific modern accents by module
+   ---------------------------------------------------------- */
+#app-main-content[data-section="dashboard"] .MuiPaper-root,
+#app-main-content[data-section="dashboard"] .MuiCard-root {
+  border-top: 2px solid rgba(229, 231, 235, 0.3) !important;
+}
+
+#app-main-content[data-section="people"] .MuiPaper-root,
+#app-main-content[data-section="people"] .MuiCard-root {
+  border-top: 2px solid rgba(209, 213, 219, 0.28) !important;
+}
+
+#app-main-content[data-section="donations"] .MuiPaper-root,
+#app-main-content[data-section="donations"] .MuiCard-root {
+  border-top: 2px solid rgba(16, 185, 129, 0.34) !important;
+}
+
+#app-main-content[data-section="serving"] .MuiPaper-root,
+#app-main-content[data-section="serving"] .MuiCard-root {
+  border-top: 2px solid rgba(168, 85, 247, 0.34) !important;
+}
+
+#app-main-content[data-section="settings"] .MuiPaper-root,
+#app-main-content[data-section="settings"] .MuiCard-root {
+  border-top: 2px solid rgba(245, 158, 11, 0.34) !important;
+}
+
+#app-main-content[data-section="mobile"] .MuiPaper-root,
+#app-main-content[data-section="mobile"] .MuiCard-root {
+  border-top: 2px solid rgba(59, 130, 246, 0.34) !important;
+}
+
+#app-main-content[data-section="website"] .MuiPaper-root,
+#app-main-content[data-section="website"] .MuiCard-root {
+  border-top: 2px solid rgba(236, 72, 153, 0.34) !important;
+}
+
+/* Website Pages sidebar controls (Show Login + navigation list) */
+#app-main-content[data-section="website"] #website-sidebar-panel {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+  padding: 16px 14px 14px 14px !important;
+  margin-top: 6px;
+}
+
+#app-main-content[data-section="website"] #website-show-login-row {
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+#app-main-content[data-section="website"] #website-main-navigation-row {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+  padding-bottom: 8px;
+  margin-bottom: 8px !important;
+}
+
+#app-main-content[data-section="website"] #website-nav-list table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+}
+
+#app-main-content[data-section="website"] #website-nav-list td {
+  border: 0;
+  vertical-align: middle;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#app-main-content[data-section="website"] #website-nav-list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+#app-main-content[data-section="sermons"] .MuiPaper-root,
+#app-main-content[data-section="sermons"] .MuiCard-root {
+  border-top: 2px solid rgba(239, 68, 68, 0.34) !important;
+}
+
+/* Better spacing rhythm for content blocks in all pages */
+#app-main-content > .MuiBox-root,
+#app-main-content > .MuiContainer-root {
+  padding-top: 8px;
+}
+
+#app-main-content .MuiGrid-container {
+  row-gap: 10px;
+}
+
+/* Refine section nav links in top app bar for sub-pages */
+#secondaryMenu a,
+#secondaryMenu .MuiChip-root {
+  border: 1px solid transparent;
+}
+
+@media (prefers-color-scheme: light) {
+  #secondaryMenu a {
+    border-color: rgba(15, 23, 42, 0.08);
+  }
+  #secondaryMenu .MuiChip-root {
+    border-color: rgba(15, 23, 42, 0.12);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #secondaryMenu a {
+    border-color: rgba(248, 250, 252, 0.12);
+  }
+  #secondaryMenu .MuiChip-root {
+    border-color: rgba(248, 250, 252, 0.24);
+  }
+}
+
+/* ----------------------------------------------------------
+   Targeted polish for key modules
+   ---------------------------------------------------------- */
+/* Shared InputBox / DisplayBox refinement */
+#app-main-content #input-box-header,
+#app-main-content #display-box-header {
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+#app-main-content #input-box-title,
+#app-main-content #display-box-title {
+  font-size: 1.04rem !important;
+  font-weight: 650 !important;
+}
+
+#app-main-content #input-box-icon,
+#app-main-content #display-box-icon {
+  font-size: 1.15rem !important;
+  opacity: 0.92;
+}
+
+/* People module */
+#app-main-content[data-section="people"] #peopleSearch,
+#app-main-content[data-section="people"] #display-box {
+  backdrop-filter: blur(2px);
+}
+
+#app-main-content[data-section="people"] #input-box-content,
+#app-main-content[data-section="people"] #display-box-content {
+  padding-top: 2px;
+}
+
+#app-main-content[data-section="people"] #searchText,
+#app-main-content[data-section="people"] textarea {
+  font-size: 0.95rem;
+}
+
+#app-main-content[data-section="people"] [data-testid="people-search-input"] {
+  border-radius: 10px !important;
+}
+
+/* Donations module */
+#app-main-content[data-section="donations"] .MuiToggleButtonGroup-root {
+  border-radius: 12px !important;
+  padding: 4px;
+}
+
+#app-main-content[data-section="donations"] .MuiToggleButton-root {
+  border-radius: 9px !important;
+  text-transform: none !important;
+  font-weight: 600;
+  padding: 6px 14px;
+}
+
+#app-main-content[data-section="donations"] .MuiToggleButton-root.Mui-selected {
+  box-shadow: 0 6px 14px rgba(47, 52, 101, 0.24);
+}
+
+#app-main-content[data-section="donations"] .MuiToggleButtonGroup-root .MuiToggleButton-root {
+  border: 1px solid transparent;
+}
+
+/* Dashboard module */
+#app-main-content[data-section="dashboard"] .MuiContainer-root {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+#app-main-content[data-section="dashboard"] .MuiStack-root > .MuiPaper-root,
+#app-main-content[data-section="dashboard"] .MuiStack-root > .MuiCard-root {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#app-main-content[data-section="dashboard"] .MuiStack-root > .MuiPaper-root:hover,
+#app-main-content[data-section="dashboard"] .MuiStack-root > .MuiCard-root:hover {
+  transform: translateY(-1px);
+}
+
+#app-main-content[data-section="dashboard"] .MuiStack-root > .MuiPaper-root .MuiTypography-h6,
+#app-main-content[data-section="dashboard"] .MuiStack-root > .MuiCard-root .MuiTypography-h6 {
+  font-weight: 650;
+}
+
+/* Mobile / Website / Settings: cleaner sub-page tops */
+#app-main-content[data-section="mobile"] .MuiTabs-root,
+#app-main-content[data-section="website"] .MuiTabs-root,
+#app-main-content[data-section="settings"] .MuiTabs-root {
+  border-radius: 10px;
+  padding: 4px;
+}
+
+/* Serving: Tasks / Automations selector */
+#app-main-content[data-section="serving"] #tasks-navigation-tabs > div {
+  border-radius: 12px;
+  margin: 8px 24px 0;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  overflow: hidden;
+}
+
+#app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTabs-root {
+  min-height: 44px;
+}
+
+#app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root {
+  min-height: 44px;
+  font-weight: 600;
+  border-radius: 8px;
+  margin: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root.Mui-selected {
+  box-shadow: 0 6px 14px rgba(47, 52, 101, 0.2);
+}
+
+/* Sermons: Playlist/Sermon/Publish Date option strips and subpage tables */
+#app-main-content[data-section="sermons"] #sermons-card,
+#app-main-content[data-section="sermons"] #playlists-card,
+#app-main-content[data-section="sermons"] #sermon-streaming-tabs-box {
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+#app-main-content[data-section="sermons"] #sermons-table .MuiTableHead-root .MuiTableCell-root,
+#app-main-content[data-section="sermons"] #playlists-table .MuiTableHead-root .MuiTableCell-root,
+#app-main-content[data-section="sermons"] #sermon-streaming-tabs-box table tbody tr td {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+#app-main-content[data-section="sermons"] #sermons-table .MuiTableBody-root .MuiTableCell-root,
+#app-main-content[data-section="sermons"] #playlists-table .MuiTableBody-root .MuiTableCell-root {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.95rem;
+}
+
+#app-main-content[data-section="sermons"] #sermons-search-bar,
+#app-main-content[data-section="sermons"] #playlists-card .MuiCardContent-root > div:first-child {
+  backdrop-filter: blur(3px);
+}
+
+/* Mobile subpages */
+#app-main-content[data-section="mobile"] #mobile-app-tabs-list .MuiPaper-root,
+#app-main-content[data-section="mobile"] #mobile-tab-edit-panel .MuiPaper-root,
+#app-main-content[data-section="mobile"] #mobile-b1-settings-card,
+#app-main-content[data-section="mobile"] #mobile-checkin-settings-card,
+#app-main-content[data-section="mobile"] #mobile-theme-settings-card .MuiPaper-root {
+  border-radius: 14px !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06) !important;
+}
+
+#app-main-content[data-section="mobile"] #mobile-app-tabs-list .MuiListItem-root {
+  border-radius: 10px;
+  margin-bottom: 4px;
+}
+
+#app-main-content[data-section="mobile"] #mobile-app-tabs-list .MuiListItemButton-root {
+  border-radius: 10px;
+}
+
+#app-main-content[data-section="mobile"] #mobile-app-tabs-list .MuiChip-root {
+  border-radius: 999px !important;
+}
+
+@media (prefers-color-scheme: light) {
+  #app-main-content[data-section="website"] #website-sidebar-panel {
+    background: #ffffff !important;
+  }
+
+  #app-main-content[data-section="website"] #website-show-login-row {
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  #app-main-content[data-section="website"] #website-main-navigation-row h3,
+  #app-main-content[data-section="website"] #website-sidebar-panel h2 {
+    color: #111827;
+  }
+
+  #app-main-content[data-section="website"] #website-nav-list a {
+    color: #1f2937;
+  }
+
+  #app-main-content[data-section="website"] #website-nav-list a:hover {
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+  }
+
+  #app-main-content[data-section="serving"] #tasks-navigation-tabs > div {
+    background: #ffffff;
+  }
+
+  #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root {
+    color: #334155;
+  }
+
+  #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root.Mui-selected {
+    background: rgba(47, 52, 101, 0.12);
+    color: #1f2937;
+  }
+
+  #app-main-content[data-section="sermons"] #sermons-table .MuiTableHead-root,
+  #app-main-content[data-section="sermons"] #playlists-table .MuiTableHead-root {
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  #app-main-content[data-section="mobile"] #mobile-b1-settings-card,
+  #app-main-content[data-section="mobile"] #mobile-checkin-settings-card {
+    background: #ffffff;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #app-main-content[data-section="website"] #website-sidebar-panel {
+    background: #171717 !important;
+    border-color: rgba(148, 163, 184, 0.24);
+  }
+
+  #app-main-content[data-section="website"] #website-show-login-row {
+    background: rgba(148, 163, 184, 0.16);
+  }
+
+  #app-main-content[data-section="website"] #website-main-navigation-row h3,
+  #app-main-content[data-section="website"] #website-sidebar-panel h2 {
+    color: #e5e7eb;
+  }
+
+  #app-main-content[data-section="website"] #website-nav-list a {
+    color: #e5e7eb;
+  }
+
+  #app-main-content[data-section="website"] #website-nav-list a:hover {
+    background: rgba(229, 231, 235, 0.14);
+    color: #f8fafc;
+  }
+
+  #app-main-content[data-section="serving"] #tasks-navigation-tabs > div {
+    background: #171717;
+    border-color: rgba(148, 163, 184, 0.22);
+  }
+
+  #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root {
+    color: #cbd5e1;
+  }
+
+  #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root.Mui-selected {
+    background: rgba(148, 163, 184, 0.22);
+    color: #f8fafc;
+  }
+
+  #app-main-content[data-section="sermons"] #sermons-table .MuiTableHead-root,
+  #app-main-content[data-section="sermons"] #playlists-table .MuiTableHead-root {
+    background: rgba(148, 163, 184, 0.1);
+  }
+
+  #app-main-content[data-section="mobile"] #mobile-b1-settings-card,
+  #app-main-content[data-section="mobile"] #mobile-checkin-settings-card {
+    background: #171717;
+  }
+}
+
+/* ----------------------------------------------------------
+   Theme reconciliation (Admin ThemeContext + body.dark-theme)
+   "Light" preference uses the same shell + surfaces as dark so the UI stays consistent.
+   ---------------------------------------------------------- */
+body.dark-theme #site-header,
+body:not(.dark-theme) #site-header {
+  --c1: #161616 !important;
+  --c1d1: #121212 !important;
+  --c1d2: #0d0d0d !important;
+  --c1l2: #222222 !important;
+  color: #f9fafb !important;
+  background-color: var(--c1) !important;
+}
+
+body.dark-theme #site-toolbar,
+body:not(.dark-theme) #site-toolbar {
+  background-color: var(--c1) !important;
+  color: #f9fafb !important;
+}
+
+body.dark-theme #app-side-menu,
+body:not(.dark-theme) #app-side-menu {
+  background: #121212 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-theme #app-main-content,
+body:not(.dark-theme) #app-main-content {
+  color: #e5e7eb !important;
+}
+
+body.dark-theme #app-main-content .MuiPaper-root,
+body.dark-theme #app-main-content .MuiCard-root,
+body.dark-theme #app-main-content .MuiAccordion-root,
+body.dark-theme #app-main-content .MuiTableContainer-root,
+body.dark-theme #app-main-content .MuiDialog-paper,
+body.dark-theme #app-main-content .MuiDrawer-paper,
+body.dark-theme #app-main-content .MuiPopover-paper,
+body.dark-theme #app-main-content .MuiMenu-paper,
+body:not(.dark-theme) #app-main-content .MuiPaper-root,
+body:not(.dark-theme) #app-main-content .MuiCard-root,
+body:not(.dark-theme) #app-main-content .MuiAccordion-root,
+body:not(.dark-theme) #app-main-content .MuiTableContainer-root,
+body:not(.dark-theme) #app-main-content .MuiDialog-paper,
+body:not(.dark-theme) #app-main-content .MuiDrawer-paper,
+body:not(.dark-theme) #app-main-content .MuiPopover-paper,
+body:not(.dark-theme) #app-main-content .MuiMenu-paper {
+  background: #171717 !important;
+  color: #e5e7eb !important;
+}
+
+body.dark-theme #user-menu-dropdown .MuiPaper-root,
+body.dark-theme #user-menu-dropdown.MuiMenu-root .MuiPaper-root,
+body:not(.dark-theme) #user-menu-dropdown .MuiPaper-root,
+body:not(.dark-theme) #user-menu-dropdown.MuiMenu-root .MuiPaper-root {
+  background: #121212 !important;
+  color: #e5e7eb !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+
+body.dark-theme #user-menu-dropdown .MuiBox-root a,
+body.dark-theme #user-menu-dropdown .MuiBox-root button,
+body:not(.dark-theme) #user-menu-dropdown .MuiBox-root a,
+body:not(.dark-theme) #user-menu-dropdown .MuiBox-root button {
+  color: #e5e7eb !important;
+}
+
+body.dark-theme #user-menu-dropdown .MuiBox-root a:hover,
+body.dark-theme #user-menu-dropdown .MuiBox-root button:hover,
+body:not(.dark-theme) #user-menu-dropdown .MuiBox-root a:hover,
+body:not(.dark-theme) #user-menu-dropdown .MuiBox-root button:hover {
+  background: rgba(229, 231, 235, 0.12) !important;
+}
+
+/* Override prefers-color-scheme: light — shell matches dark chrome for both theme prefs and OS schemes */
+body.dark-theme #site-header,
+body:not(.dark-theme) #site-header {
+  border-bottom: 1px solid rgba(249, 250, 251, 0.14);
+}
+
+body.dark-theme #secondaryMenu,
+body:not(.dark-theme) #secondaryMenu {
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+body.dark-theme #secondaryMenu a,
+body:not(.dark-theme) #secondaryMenu a {
+  color: #cbd5e1 !important;
+}
+
+body.dark-theme #secondaryMenu a:hover,
+body:not(.dark-theme) #secondaryMenu a:hover {
+  background: rgba(203, 213, 225, 0.12);
+  color: #f8fafc !important;
+}
+
+body.dark-theme #secondaryMenu .MuiChip-root,
+body:not(.dark-theme) #secondaryMenu .MuiChip-root {
+  background: rgba(248, 250, 252, 0.22) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(248, 250, 252, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+body.dark-theme #app-side-menu,
+body:not(.dark-theme) #app-side-menu {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-right-color: rgba(148, 163, 184, 0.2);
+}
+
+body.dark-theme #app-side-menu .side-menu-item,
+body:not(.dark-theme) #app-side-menu .side-menu-item {
+  color: #e5e7eb;
+}
+
+body.dark-theme #app-side-menu .side-menu-item .MuiIcon-root,
+body:not(.dark-theme) #app-side-menu .side-menu-item .MuiIcon-root {
+  background: rgba(229, 231, 235, 0.12);
+  color: #e5e7eb;
+}
+
+body.dark-theme #app-side-menu .side-menu-item:hover,
+body:not(.dark-theme) #app-side-menu .side-menu-item:hover {
+  background: rgba(229, 231, 235, 0.12);
+  border-color: rgba(229, 231, 235, 0.2);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+}
+
+body.dark-theme #app-side-menu .side-menu-item.active,
+body:not(.dark-theme) #app-side-menu .side-menu-item.active {
+  background: linear-gradient(135deg, rgba(229, 231, 235, 0.24), rgba(229, 231, 235, 0.14));
+  border-color: rgba(229, 231, 235, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.2), 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+body.dark-theme #app-side-menu .side-menu-item.active .MuiIcon-root,
+body:not(.dark-theme) #app-side-menu .side-menu-item.active .MuiIcon-root {
+  background: rgba(229, 231, 235, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.24);
+}
+
+body.dark-theme #site-header .MuiIcon-root,
+body.dark-theme #site-header .MuiButton-root,
+body.dark-theme #site-header a,
+body.dark-theme #site-header h2,
+body:not(.dark-theme) #site-header .MuiIcon-root,
+body:not(.dark-theme) #site-header .MuiButton-root,
+body:not(.dark-theme) #site-header a,
+body:not(.dark-theme) #site-header h2 {
+  color: #f9fafb !important;
+}
+
+body.dark-theme #user-menu-avatar,
+body:not(.dark-theme) #user-menu-avatar {
+  border-color: rgba(249, 250, 251, 0.55) !important;
+}
+
+body.dark-theme #user-menu-button,
+body:not(.dark-theme) #user-menu-button {
+  background: rgba(249, 250, 251, 0.08) !important;
+  border-color: rgba(249, 250, 251, 0.2) !important;
+}
+
+body.dark-theme #user-menu-button:hover,
+body:not(.dark-theme) #user-menu-button:hover {
+  background: rgba(249, 250, 251, 0.16) !important;
+  border-color: rgba(249, 250, 251, 0.3) !important;
+}
+
+body.dark-theme #user-menu-avatar .MuiSvgIcon-root,
+body:not(.dark-theme) #user-menu-avatar .MuiSvgIcon-root {
+  color: #d1d5db !important;
+}
+
+body.dark-theme #user-menu-avatar img,
+body:not(.dark-theme) #user-menu-avatar img {
+  filter: grayscale(1) brightness(1.35) contrast(0.9);
+}
+
+body.dark-theme #app-main-content[data-section="website"] #website-sidebar-panel,
+body:not(.dark-theme) #app-main-content[data-section="website"] #website-sidebar-panel {
+  background: #171717 !important;
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+body.dark-theme #app-main-content[data-section="website"] #website-show-login-row,
+body:not(.dark-theme) #app-main-content[data-section="website"] #website-show-login-row {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+body.dark-theme #app-main-content[data-section="website"] #website-main-navigation-row h3,
+body.dark-theme #app-main-content[data-section="website"] #website-sidebar-panel h2,
+body:not(.dark-theme) #app-main-content[data-section="website"] #website-main-navigation-row h3,
+body:not(.dark-theme) #app-main-content[data-section="website"] #website-sidebar-panel h2 {
+  color: #e5e7eb;
+}
+
+body.dark-theme #app-main-content[data-section="website"] #website-nav-list a,
+body:not(.dark-theme) #app-main-content[data-section="website"] #website-nav-list a {
+  color: #e5e7eb;
+}
+
+body.dark-theme #app-main-content[data-section="website"] #website-nav-list a:hover,
+body:not(.dark-theme) #app-main-content[data-section="website"] #website-nav-list a:hover {
+  background: rgba(229, 231, 235, 0.14);
+  color: #f8fafc;
+}
+
+body.dark-theme #app-main-content[data-section="serving"] #tasks-navigation-tabs > div,
+body:not(.dark-theme) #app-main-content[data-section="serving"] #tasks-navigation-tabs > div {
+  background: #171717;
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+body.dark-theme #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root,
+body:not(.dark-theme) #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root {
+  color: #cbd5e1;
+}
+
+body.dark-theme #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root.Mui-selected,
+body:not(.dark-theme) #app-main-content[data-section="serving"] #tasks-navigation-tabs .MuiTab-root.Mui-selected {
+  background: rgba(148, 163, 184, 0.22);
+  color: #f8fafc;
+}
+
+body.dark-theme #app-main-content[data-section="sermons"] #sermons-table .MuiTableHead-root,
+body.dark-theme #app-main-content[data-section="sermons"] #playlists-table .MuiTableHead-root,
+body:not(.dark-theme) #app-main-content[data-section="sermons"] #sermons-table .MuiTableHead-root,
+body:not(.dark-theme) #app-main-content[data-section="sermons"] #playlists-table .MuiTableHead-root {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+body.dark-theme #app-main-content[data-section="mobile"] #mobile-b1-settings-card,
+body.dark-theme #app-main-content[data-section="mobile"] #mobile-checkin-settings-card,
+body:not(.dark-theme) #app-main-content[data-section="mobile"] #mobile-b1-settings-card,
+body:not(.dark-theme) #app-main-content[data-section="mobile"] #mobile-checkin-settings-card {
+  background: #171717;
+}

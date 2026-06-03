@@ -1,0 +1,19 @@
+STAGE=staging
+
+# Self-hosted staging (match Admin .env). Emulator: localhost is rewritten to 10.0.2.2 on Android.
+CONTENT_ROOT=https://sovzgk5nt8.execute-api.us-east-2.amazonaws.com/staging/content
+MEMBERSHIP_API=https://sovzgk5nt8.execute-api.us-east-2.amazonaws.com/staging/membership
+MESSAGING_API=https://sovzgk5nt8.execute-api.us-east-2.amazonaws.com/staging/messaging
+ATTENDANCE_API=https://sovzgk5nt8.execute-api.us-east-2.amazonaws.com/staging/attendance
+GIVING_API=https://sovzgk5nt8.execute-api.us-east-2.amazonaws.com/staging/giving
+DOING_API=https://sovzgk5nt8.execute-api.us-east-2.amazonaws.com/staging/doing
+CONTENT_API=https://sovzgk5nt8.execute-api.us-east-2.amazonaws.com/staging/content
+
+LESSONS_ROOT=https://staging.lessons.church
+B1_WEB_ROOT=http://localhost:3301
+# Spirit Embassy church id (match Admin REACT_APP_DEFAULT_CHURCH_ID)
+DEFAULT_CHURCH_ID=Q6Qy87xUc5z
+
+# Secrets (do NOT commit .env.local with real values)
+SENTRY_AUTH_TOKEN=
+YOUVERSION_API_KEY=

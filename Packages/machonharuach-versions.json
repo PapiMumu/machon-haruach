@@ -1,0 +1,12 @@
+{
+  "helpers": "1.2.31",
+  "apihelper": "0.5.4",
+  "content-providers": "0.1.8",
+  "texting": "0.1.1",
+  "apphelper": "0.6.20",
+  "apphelper-donations": "0.6.18",
+  "apphelper-forms": "0.6.15",
+  "apphelper-login": "0.6.20",
+  "apphelper-markdown": "0.6.18",
+  "apphelper-website": "0.6.19"
+}

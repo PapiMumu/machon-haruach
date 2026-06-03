@@ -1,0 +1,529 @@
+import { controller, httpPost, httpGet, requestParam, httpDelete } from "inversify-express-utils";
+import express from "express";
+import { GivingCrudController } from "./GivingCrudController.js";
+import { GatewayService, type GetGatewayOptions } from "../../../shared/helpers/GatewayService.js";
+import { Permissions } from "../../../shared/helpers/Permissions.js";
+import { formatStripeCardBrand } from "../../../shared/helpers/stripeCardDisplay.js";
+import { GatewayPaymentMethod } from "../models/index.js";
+
+@controller("/giving/paymentmethods")
+export class PaymentMethodController extends GivingCrudController {
+  protected crudSettings = {
+    repoKey: "customer", // not used by base here
+    permissions: { view: Permissions.donations.view, edit: Permissions.donations.edit },
+    routes: [] as const
+  };
+
+  @httpGet("/test/personid/:id")
+  public async testGetPersonPaymentMethods(@requestParam("id") id: string, _req: express.Request<{}, {}, null>, _res: express.Response): Promise<any> {
+    // Test endpoint without auth for debugging - initialize repos manually
+    const { RepoManager } = await import("../../../shared/infrastructure/RepoManager.js");
+    this.repos = await RepoManager.getRepos("giving");
+
+    const churchId = "AOjIt0W-SeY"; // hardcoded for testing
+
+    const gateway = await GatewayService.getGatewayForChurch(churchId, {}, this.repos.gateway).catch(() => null);
+
+    if (!gateway) {
+      console.log("No gateway found for church");
+      return [];
+    }
+
+    // Check if provider supports vault/stored payment methods
+    const capabilities = GatewayService.getProviderCapabilities(gateway);
+    if (!capabilities?.supportsVault) {
+      console.log("Provider doesn't support vault");
+      return []; // Return empty array for providers without vault support
+    }
+
+    let customer = await this.repos.customer.loadByPersonAndProvider(churchId, id, gateway.provider);
+    if (!customer) {
+      customer = await this.repos.customer.loadByPersonId(churchId, id);
+    }
+
+
+    if (!customer) return [];
+    const rawPaymentMethods = await GatewayService.getCustomerPaymentMethods(gateway, customer);
+
+
+    // Normalize payment methods to consistent format
+    const normalizedMethods: any[] = [];
+
+    console.log("Gateway provider:", gateway.provider, "->", gateway.provider?.toLowerCase());
+
+    if (gateway.provider?.toLowerCase() === "paypal" && Array.isArray(rawPaymentMethods)) {
+      for (const method of rawPaymentMethods) {
+        normalizedMethods.push({
+          id: method.id,
+          type: "paypal",
+          provider: "paypal",
+          name: "PayPal",
+          email: method.email,
+          customerId: customer.id
+        });
+      }
+    }
+
+    console.log("Normalized methods:", normalizedMethods);
+    return normalizedMethods;
+  }
+
+  @httpGet("/personid/:id")
+  public async getPersonPaymentMethods(@requestParam("id") id: string, req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const gateway = await GatewayService.getGatewayForChurch(au.churchId, {}, this.repos.gateway).catch(() => null);
+      const permission = gateway && (au.checkAccess(Permissions.donations.view) || id === au.personId);
+      if (!permission) return this.json({}, 401);
+
+      // Check if provider supports vault/stored payment methods
+      const capabilities = GatewayService.getProviderCapabilities(gateway);
+      if (!capabilities?.supportsVault) {
+        return []; // Return empty array for providers without vault support
+      }
+
+      let customer = await this.repos.customer.loadByPersonAndProvider(au.churchId, id, gateway.provider);
+      if (!customer) {
+        customer = await this.repos.customer.loadByPersonId(au.churchId, id);
+      }
+
+      if (!customer) return [];
+
+      let rawPaymentMethods: any[] = [];
+      try {
+        rawPaymentMethods = await GatewayService.getCustomerPaymentMethods(gateway, customer);
+      } catch (e: any) {
+        console.error("getCustomerPaymentMethods failed", { provider: gateway.provider, customerId: customer.id, error: e?.message });
+        return [];
+      }
+
+      // Normalize payment methods to consistent format
+      const normalizedMethods: any[] = [];
+
+      if (gateway.provider?.toLowerCase() === "stripe" && Array.isArray(rawPaymentMethods)) {
+        for (const method of rawPaymentMethods) {
+          if (method.type === "card" && method.card) {
+            normalizedMethods.push({
+              id: method.id,
+              type: "card",
+              provider: "stripe",
+              name: formatStripeCardBrand(method.card.brand),
+              last4: method.card.last4 || "",
+              exp_month: method.card.exp_month?.toString() || "",
+              exp_year: method.card.exp_year?.toString() || "",
+              customerId: customer.id || customer
+            });
+          } else if (method.type === "us_bank_account" && method.us_bank_account) {
+            normalizedMethods.push({
+              id: method.id,
+              type: "bank",
+              provider: "stripe",
+              name: method.us_bank_account.bank_name || "bank",
+              last4: method.us_bank_account.last4 || "",
+              account_holder_name: method.billing_details?.name || "",
+              account_holder_type: method.us_bank_account.account_holder_type || "individual",
+              status: method.us_bank_account.financial_connections_account ? "verified" : "pending",
+              customerId: customer.id || customer
+            });
+          }
+        }
+      }
+
+      if (gateway.provider?.toLowerCase() === "paypal" && Array.isArray(rawPaymentMethods)) {
+        const stored = await this.repos.gatewayPaymentMethod.loadByCustomer(au.churchId, gateway.id, customer.id!);
+        if (stored.length) {
+          const lookup = new Map(stored.map((record) => [record.externalId, record]));
+          for (const method of rawPaymentMethods) {
+            const record = lookup.get(method?.id);
+            const normalizedMethod = {
+              id: method.id,
+              type: "paypal",
+              provider: "paypal",
+              name: record?.displayName || "PayPal",
+              email: method.email,
+              customerId: record?.customerId || customer.id
+            };
+            normalizedMethods.push(record ? { ...normalizedMethod, localRecord: record } : normalizedMethod);
+          }
+        } else {
+          // No stored records, just normalize what we have
+          for (const method of rawPaymentMethods) {
+            normalizedMethods.push({
+              id: method.id,
+              type: "paypal",
+              provider: "paypal",
+              name: "PayPal",
+              email: method.email,
+              customerId: customer.id
+            });
+          }
+        }
+      }
+
+      return normalizedMethods;
+    });
+  }
+
+  @httpPost("/addcard")
+  public async addCard(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { id, personId, customerId, email, name, churchId, provider, gatewayId } = req.body;
+      const cId = au?.churchId || churchId;
+      const gatewayOpts: GetGatewayOptions = {};
+      if (gatewayId && String(gatewayId).trim()) gatewayOpts.gatewayId = String(gatewayId).trim();
+      else if (provider && String(provider).trim()) gatewayOpts.provider = String(provider).trim();
+      const gateway = await GatewayService.getGatewayForChurch(cId, gatewayOpts, this.repos.gateway).catch(() => null);
+
+      if (!gateway) {
+        return this.json({ error: "Payment gateway not configured" }, 400);
+      }
+
+      // Check if provider supports vault/stored payment methods
+      const capabilities = GatewayService.getProviderCapabilities(gateway);
+      if (!capabilities?.supportsVault) {
+        return this.json({ error: `${gateway.provider} does not support stored payment methods` }, 400);
+      }
+
+      if (!id) {
+        return this.json({ error: "Invalid payment method ID format" }, 400);
+      }
+
+      let customer = customerId;
+      if (!customer) {
+        try {
+          customer = await GatewayService.createCustomer(gateway, email, name);
+          if (customer) {
+            await this.repos.customer.save({ id: customer, churchId: cId, personId, provider: gateway.provider });
+          }
+        } catch (e: any) {
+          return this.json({ error: "Failed to create customer", details: e.message }, 500);
+        }
+      }
+
+      try {
+        const pm = await GatewayService.attachPaymentMethod(gateway, id, { customer });
+        if (gateway.provider === "paypal" && customer) {
+          const tokenId = pm?.id || id;
+          if (tokenId) {
+            const paymentSource = pm?.payment_source || {};
+            const card = paymentSource.card as { last4?: string; brand?: string } | undefined;
+            const paypalSource = paymentSource.paypal as { email_address?: string } | undefined;
+
+            const methodType = card
+              ? "card"
+              : paypalSource
+                ? "paypal"
+                : typeof pm?.type === "string"
+                  ? pm.type
+                  : "token";
+
+            const displayName = card
+              ? `${(card.brand || "Card").toUpperCase()} •••• ${card.last4 ?? ""}`.trim()
+              : paypalSource?.email_address || `PayPal token ${tokenId.substring(0, 6)}...`;
+
+            const existing = await this.repos.gatewayPaymentMethod.loadByExternalId(cId, gateway.id, tokenId);
+            const record: GatewayPaymentMethod = {
+              id: existing?.id,
+              churchId: cId,
+              gatewayId: gateway.id,
+              customerId: customer,
+              externalId: tokenId,
+              methodType,
+              displayName,
+              metadata: {
+                status: pm?.status,
+                brand: card?.brand,
+                last4: card?.last4
+              }
+            };
+            await this.repos.gatewayPaymentMethod.save(record);
+          }
+        }
+
+        return { paymentMethod: pm, customerId: customer };
+      } catch (e: any) {
+        return this.json({
+          error: e.message || "Failed to attach payment method",
+          code: e.code || "unknown_error"
+        }, e.statusCode || 500);
+      }
+    });
+  }
+
+  @httpPost("/ensure-customer")
+  public async ensureCustomer(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { personId, email, name, provider, gatewayId } = req.body;
+      const gatewayOpts: GetGatewayOptions = {};
+      if (gatewayId && String(gatewayId).trim()) gatewayOpts.gatewayId = String(gatewayId).trim();
+      else if (provider && String(provider).trim()) gatewayOpts.provider = String(provider).trim();
+      const gateway = await GatewayService.getGatewayForChurch(au.churchId, gatewayOpts, this.repos.gateway).catch(() => null);
+      if (!gateway) return this.json({ error: "Payment gateway not configured" }, 400);
+
+      const capabilities = GatewayService.getProviderCapabilities(gateway);
+      if (!capabilities?.supportsVault) return this.json({ customerId: null }, 200);
+
+      // Return existing customer immediately if found
+      const existing = await this.repos.customer.loadByPersonAndProvider(au.churchId, personId, gateway.provider)
+        || await this.repos.customer.loadByPersonId(au.churchId, personId);
+      if (existing?.id) return { customerId: existing.id };
+
+      // Create customer in Stripe and persist
+      try {
+        const customerId = await GatewayService.createCustomer(gateway, email, name);
+        if (customerId) {
+          await this.repos.customer.save({ id: customerId, churchId: au.churchId, personId, provider: gateway.provider });
+        }
+        return { customerId: customerId || null };
+      } catch (e: any) {
+        return this.json({ error: e.message || "Failed to ensure customer" }, 500);
+      }
+    });
+  }
+
+  @httpPost("/updatecard")
+  public async updateCard(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { personId, paymentMethodId, cardData, provider, gatewayId } = req.body;
+      const gatewayOpts: GetGatewayOptions = {};
+      if (gatewayId && String(gatewayId).trim()) gatewayOpts.gatewayId = String(gatewayId).trim();
+      else if (provider && String(provider).trim()) gatewayOpts.provider = String(provider).trim();
+      const gateway = await GatewayService.getGatewayForChurch(au.churchId, gatewayOpts, this.repos.gateway).catch(() => null);
+      const permission = gateway && (au.checkAccess(Permissions.donations.edit) || personId === au.personId);
+      if (!permission) return this.json({ error: "Insufficient permissions" }, 401);
+      try {
+        return await GatewayService.updateCard(gateway, paymentMethodId, cardData);
+      } catch (e: any) {
+        console.error("Error updating card:", e);
+        return this.json({
+          error: e.message || "Failed to update card",
+          code: e.code || "unknown_error"
+        }, e.statusCode || 500);
+      }
+    });
+  }
+
+  // New endpoint for ACH bank account setup using Financial Connections
+  @httpPost("/ach-setup-intent")
+  public async createACHSetupIntent(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { personId, customerId, email, name, churchId } = req.body;
+      const cId = au?.churchId || churchId;
+      const gateway = await GatewayService.getGatewayForChurch(cId, {}, this.repos.gateway).catch(() => null);
+
+      if (!gateway) {
+        return this.json({ error: "Payment gateway not configured" }, 400);
+      }
+
+      const permission = au.checkAccess(Permissions.donations.edit) || personId === au.personId;
+      if (!permission) return this.json({ error: "Insufficient permissions" }, 401);
+
+      // Check if provider supports ACH/bank accounts
+      const capabilities = GatewayService.getProviderCapabilities(gateway);
+      if (!capabilities?.supportsACH) {
+        return this.json({ error: `${gateway.provider} does not support bank account payments` }, 400);
+      }
+
+      let customer = customerId;
+      if (!customer) {
+        // First, check if a customer already exists in the database for this person
+        const existingCustomer = await this.repos.customer.loadByPersonAndProvider(cId, personId, gateway.provider)
+          || await this.repos.customer.loadByPersonId(cId, personId);
+
+        if (existingCustomer?.id) {
+          customer = existingCustomer.id;
+        } else {
+          // No existing customer, create a new one
+          try {
+            customer = await GatewayService.createCustomer(gateway, email, name);
+            if (customer) {
+              await this.repos.customer.save({ id: customer, churchId: cId, personId, provider: gateway.provider });
+            }
+          } catch (e: any) {
+            console.error("Error creating customer:", e);
+            return this.json({ error: "Failed to create customer", details: e.message }, 500);
+          }
+        }
+      }
+
+      try {
+        const setupIntent = await GatewayService.createACHSetupIntent(gateway, customer);
+        return {
+          clientSecret: setupIntent.client_secret,
+          setupIntentId: setupIntent.id,
+          customerId: customer
+        };
+      } catch (e: any) {
+        console.error("Error creating ACH SetupIntent:", e);
+        return this.json({
+          error: e.message || "Failed to create ACH SetupIntent",
+          code: e.code || "unknown_error"
+        }, e.statusCode || 500);
+      }
+    });
+  }
+
+  // Anonymous endpoint for ACH bank account setup (for guest donations)
+  @httpPost("/ach-setup-intent-anon")
+  public async createACHSetupIntentAnon(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapperAnon(req, res, async () => {
+      const { email, name, churchId, gatewayId } = req.body;
+
+      if (!churchId) {
+        return this.json({ error: "Church ID is required" }, 400);
+      }
+
+      if (!email || !name) {
+        return this.json({ error: "Email and name are required" }, 400);
+      }
+
+      const gateway = await GatewayService.getGatewayForChurch(churchId, { gatewayId }, this.repos.gateway).catch(() => null);
+
+      if (!gateway) {
+        return this.json({ error: "Payment gateway not configured" }, 400);
+      }
+
+      // Check if provider supports ACH/bank accounts
+      const capabilities = GatewayService.getProviderCapabilities(gateway);
+      if (!capabilities?.supportsACH) {
+        return this.json({ error: `${gateway.provider} does not support bank account payments` }, 400);
+      }
+
+      try {
+        // Create a temporary customer (not saved to DB for guest one-time donation)
+        const providerCustomerId = await GatewayService.createCustomer(gateway, email, name);
+
+        // Create ACH SetupIntent
+        const setupIntent = await GatewayService.createACHSetupIntent(gateway, providerCustomerId);
+        return {
+          clientSecret: setupIntent.client_secret,
+          setupIntentId: setupIntent.id,
+          customerId: providerCustomerId
+        };
+      } catch (e: any) {
+        console.error("Error creating anonymous ACH SetupIntent:", e);
+        return this.json({
+          error: e.message || "Failed to create ACH SetupIntent",
+          code: e.code || "unknown_error"
+        }, e.statusCode || 500);
+      }
+    });
+  }
+
+  // Legacy endpoint for adding bank accounts via token (deprecated - use ach-setup-intent instead)
+  @httpPost("/addbankaccount")
+  public async addBankAccount(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { id, personId, customerId, email, name, provider, gatewayId } = req.body;
+      const gatewayOpts: GetGatewayOptions = {};
+      if (gatewayId && String(gatewayId).trim()) gatewayOpts.gatewayId = String(gatewayId).trim();
+      else if (provider && String(provider).trim()) gatewayOpts.provider = String(provider).trim();
+      const gateway = await GatewayService.getGatewayForChurch(au.churchId, gatewayOpts, this.repos.gateway).catch(() => null);
+      const permission = gateway && (au.checkAccess(Permissions.donations.edit) || personId === au.personId);
+      if (!permission) return this.json({ error: "Insufficient permissions" }, 401);
+
+      // Check if provider supports ACH/bank accounts
+      const capabilities = GatewayService.getProviderCapabilities(gateway);
+      if (!capabilities?.supportsACH) {
+        return this.json({ error: `${gateway.provider} does not support bank account payments` }, 400);
+      }
+      let customer = customerId;
+      if (!customer) {
+        try {
+          customer = await GatewayService.createCustomer(gateway, email, name);
+          if (customer) {
+            await this.repos.customer.save({ id: customer, churchId: au.churchId, personId, provider: gateway.provider });
+          }
+        } catch (e: any) {
+          console.error("Error creating customer:", e);
+          return this.json({ error: "Failed to create customer", details: e.message }, 500);
+        }
+      }
+
+      try {
+        return await GatewayService.createBankAccount(gateway, customer, { source: id });
+      } catch (e: any) {
+        console.error("Error adding bank account:", e);
+        return this.json({
+          error: e.message || "Failed to add bank account",
+          code: e.code || "unknown_error"
+        }, e.statusCode || 500);
+      }
+    });
+  }
+
+  @httpPost("/updatebank")
+  public async updateBank(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { paymentMethodId, personId, bankData, customerId, provider, gatewayId } = req.body;
+      const gatewayOpts: GetGatewayOptions = {};
+      if (gatewayId && String(gatewayId).trim()) gatewayOpts.gatewayId = String(gatewayId).trim();
+      else if (provider && String(provider).trim()) gatewayOpts.provider = String(provider).trim();
+      const gateway = await GatewayService.getGatewayForChurch(au.churchId, gatewayOpts, this.repos.gateway).catch(() => null);
+      const permission = gateway && (au.checkAccess(Permissions.donations.edit) || personId === au.personId);
+      if (!permission) return this.json({}, 401);
+      try {
+        return await GatewayService.updateBank(gateway, paymentMethodId, bankData, customerId);
+      } catch (e) {
+        return e;
+      }
+    });
+  }
+
+  @httpPost("/verifybank")
+  public async verifyBank(req: express.Request<any>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const { paymentMethodId, customerId, amountData, provider, gatewayId } = req.body;
+      const gatewayOpts: GetGatewayOptions = {};
+      if (gatewayId && String(gatewayId).trim()) gatewayOpts.gatewayId = String(gatewayId).trim();
+      else if (provider && String(provider).trim()) gatewayOpts.provider = String(provider).trim();
+      const gateway = await GatewayService.getGatewayForChurch(au.churchId, gatewayOpts, this.repos.gateway).catch(() => null);
+      const permission =
+        gateway &&
+        (au.checkAccess(Permissions.donations.edit) || (await this.repos.customer.convertToModel(au.churchId, await this.repos.customer.load(au.churchId, customerId)).personId) === au.personId);
+      if (!permission) return this.json({}, 401);
+      else {
+        try {
+          return await GatewayService.verifyBank(gateway, paymentMethodId, amountData, customerId);
+        } catch (e) {
+          return e;
+        }
+      }
+    });
+  }
+
+  @httpDelete("/:id/:customerid")
+  public async deletePaymentMethod(@requestParam("id") id: string, @requestParam("customerid") customerId: string, req: express.Request<{}, {}, null>, res: express.Response): Promise<any> {
+    return this.actionWrapper(req, res, async (au) => {
+      const q = req.query as { provider?: string; gatewayId?: string };
+      const gatewayOpts: GetGatewayOptions = {};
+      if (q.gatewayId && String(q.gatewayId).trim()) gatewayOpts.gatewayId = String(q.gatewayId).trim();
+      else if (q.provider && String(q.provider).trim()) gatewayOpts.provider = String(q.provider).trim();
+      const gateway = await GatewayService.getGatewayForChurch(au.churchId, gatewayOpts, this.repos.gateway).catch(() => null);
+      const permission =
+        gateway &&
+        (au.checkAccess(Permissions.donations.edit) || (await this.repos.customer.convertToModel(au.churchId, await this.repos.customer.load(au.churchId, customerId)).personId) === au.personId);
+      if (!permission) return this.json({}, 401);
+      else {
+        try {
+          if (id.startsWith("ba_")) {
+            await GatewayService.deleteBankAccount(gateway, customerId, id);
+          } else {
+            await GatewayService.detachPaymentMethod(gateway, id);
+          }
+
+          if (gateway.provider === "paypal") {
+            await this.repos.gatewayPaymentMethod.deleteByExternalId(au.churchId, gateway.id, id);
+          }
+
+          return this.json({});
+        } catch (e: any) {
+          return this.json({
+            error: e?.message || "Failed to delete payment method",
+            code: e?.code || "unknown_error"
+          }, e?.statusCode || 500);
+        }
+      }
+    });
+  }
+
+}
